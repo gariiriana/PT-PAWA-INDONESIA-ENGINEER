@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function getUserRole() {
+      return getUserData().data.role;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && getUserData() != null && getUserRole() == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    function isSiteManager() {
+      return hasRole('site_manager');
+    }
+    
+    function isEngineer() {
+      return hasRole('engineer');
+    }
+    
+    function isHSE() {
+      return hasRole('hse');
+    }
+
+    // Rules for Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Engineer Reports
+    match /reports_engineer/{reportId} {
+      allow read: if isAuthenticated(); // All roles can read for monitoring
+      allow create, update: if isAuthenticated() && (isEngineer() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Rules for HSE Incident & Hazard Reports
+    match /reports_hse/{reportId} {
+      allow read: if isAuthenticated(); // All roles can read for monitoring
+      allow create, update: if isAuthenticated() && (isHSE() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Permit To Work (PTW)
+    match /ptw/{ptwId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isEngineer() || isHSE() || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Rules for Safety Inspections
+    match /safety_inspections/{inspectionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isHSE() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Attachments (chunked uploads)
+    match /attachments/{attachmentId} {
+      allow read, write: if isAuthenticated();
+      
+      match /chunks/{chunkIndex} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+  }
+}

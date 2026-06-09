@@ -1,0 +1,135 @@
+import React, { useState } from 'react';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
+
+interface LoginProps {
+  onLoginSuccess: (userProfile: { uid: string; email: string; name: string; role: string }) => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCred.user.uid;
+
+      // Fetch user profile to verify role
+      const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        await signOut(auth);
+        throw new Error('Profil user tidak ditemukan di database.');
+      }
+
+      const userData = userDocSnap.data();
+      const role = userData.role;
+
+      // Validate allowed roles for HSE portal
+      if (role !== 'hse' && role !== 'site_manager' && role !== 'admin') {
+        await signOut(auth);
+        throw new Error('Akses ditolak. Akun Anda tidak memiliki peran HSE/Manager.');
+      }
+
+      onLoginSuccess({
+        uid,
+        email: userCred.user.email || '',
+        name: userData.name || 'HSE User',
+        role,
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Gagal login. Periksa kembali email dan password Anda.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#090713] p-4 relative overflow-hidden">
+      {/* Decorative colored glow background */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#828200]/10 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+      <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative border border-slate-800/80">
+        {/* Brand Logo & Header */}
+        <div className="flex flex-col items-center mb-8">
+          <img
+            src="https://pawaengineering.co.id/wp-content/uploads/2022/09/cropped-Logo-Pawa-192x192.png"
+            alt="PT PAWA Logo"
+            className="w-20 h-20 mb-3 drop-shadow-[0_4px_10px_rgba(16,185,129,0.2)]"
+          />
+          <h2 className="text-2xl font-bold tracking-tight text-white">PORTAL HSE & K3</h2>
+          <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-mono">
+            PT PAWA INDONESIA ENGINEERING
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-950/40 border border-red-900/50 rounded-xl text-red-400 text-sm text-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Email Personil HSE
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nama.hse@pawaengineering.co.id"
+              className="w-full px-4 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Kata Sandi
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-[#828200] hover:bg-[#999900] disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-xl transition duration-200 mt-4 cursor-pointer shadow-lg shadow-[#828200]/10 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            ) : (
+              'Masuk Portal K3'
+            )}
+          </button>
+        </form>
+
+        {/* Footer info matching official web */}
+        <div className="mt-8 pt-6 border-t border-slate-800/80 text-center text-[10px] text-slate-500 space-y-1">
+          <p className="font-semibold text-slate-400">PT. PAWA INDONESIA ENGINEERING</p>
+          <p>37th Floor, The East Tower, Kuningan Barat, Jakarta Selatan</p>
+          <p>Support: sales@pawaengineering.co.id</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+export default Login;

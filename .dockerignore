@@ -1,0 +1,29 @@
+# Node dependencies and builds
+node_modules
+**/node_modules
+dist
+**/dist
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Git
+.git
+.gitignore
+
+# Go binaries and files
+*.exe
+*.test
+*.prof
+binary
+/api/tmp
+
+# Temporary/Brain files
+.gemini
+markdown_docs
+Cwd
+CWD
+
+# Firebase
+.firebase
+firebase-debug.log

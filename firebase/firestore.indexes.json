@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reports_engineer",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "engineerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reports_hse",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hseId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

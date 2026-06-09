@@ -1,0 +1,19 @@
+{
+  "name": "pawa-report-maintenance",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/engineer-web",
+    "apps/hse-web",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:engineer": "npm run dev --workspace=apps/engineer-web",
+    "dev:hse": "npm run dev --workspace=apps/hse-web",
+    "dev:all": "npm run dev --workspaces --parallel",
+    "build:engineer": "npm run build --workspace=apps/engineer-web",
+    "build:hse": "npm run build --workspace=apps/hse-web",
+    "build:all": "npm run build --workspaces"
+  }
+}

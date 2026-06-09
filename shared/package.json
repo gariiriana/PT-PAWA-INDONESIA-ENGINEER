@@ -1,0 +1,13 @@
+{
+  "name": "pawa-shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "build": "echo shared-build-no-op"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

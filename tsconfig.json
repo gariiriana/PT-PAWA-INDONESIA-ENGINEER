@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["react", "react-dom"],
+    "baseUrl": ".",
+    "paths": {
+      "pawa-shared": ["./shared"],
+      "@shared/*": ["./shared/*"],
+      "@shared": ["./shared"],
+      "@/*": ["./apps/engineer-web/src/*", "./apps/hse-web/src/*"]
+    }
+  },
+  "include": ["apps/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "**/node_modules", "dist", "**/dist"]
+}

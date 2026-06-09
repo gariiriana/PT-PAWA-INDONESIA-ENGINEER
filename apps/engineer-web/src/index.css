@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #828200;
+  --color-primary-hover: #999900;
+  --color-accent: #9ca2a7;
+  --color-brand-dark: #111111;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Roboto", monospace;
+}
+
+/* Custom premium styles */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.4);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(30, 41, 59, 0.55);
+  border-color: rgba(130, 130, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, #828200 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  engineer-web:
+    build:
+      context: .
+      dockerfile: apps/engineer-web/Dockerfile
+    container_name: pawa-engineer-web
+    ports:
+      - "3000:80"
+    restart: always
+
+  hse-web:
+    build:
+      context: .
+      dockerfile: apps/hse-web/Dockerfile
+    container_name: pawa-hse-web
+    ports:
+      - "3001:80"
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pawa-backend-api
+    ports:
+      - "8080:8080"
+    restart: always
