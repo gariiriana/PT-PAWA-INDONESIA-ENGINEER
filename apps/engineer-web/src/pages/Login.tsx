@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 interface LoginProps {
@@ -24,14 +24,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
       // Fetch user profile to verify role
       const userDocRef = doc(db, 'users', uid);
-      const userDocSnap = await getDoc(userDocRef);
+      let userDocSnap = await getDoc(userDocRef);
 
       if (!userDocSnap.exists()) {
-        await signOut(auth);
-        throw new Error('Profil user tidak ditemukan di database.');
+        const defaultName = userCred.user.email ? userCred.user.email.split('@')[0] : 'Engineer';
+        await setDoc(userDocRef, {
+          uid,
+          email: userCred.user.email || '',
+          name: defaultName.charAt(0).toUpperCase() + defaultName.slice(1),
+          role: 'engineer',
+          createdAt: new Date().toISOString()
+        });
+        userDocSnap = await getDoc(userDocRef);
       }
 
-      const userData = userDocSnap.data();
+      const userData = userDocSnap.data() || {};
       const role = userData.role;
 
       // Validate allowed roles
