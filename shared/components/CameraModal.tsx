@@ -456,59 +456,68 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions (Centered / Responsive button stack) */}
-        <div className="p-4 border-t border-slate-800/80 flex flex-wrap justify-between items-center bg-[#0d1322]/90 gap-3">
+        {/* Footer Actions (Premium Native-Like Circular Layout) */}
+        <div className="p-4 border-t border-slate-800/80 flex justify-center items-center bg-[#0d1322]/90">
           {previewDataUrl ? (
-            <>
-              {/* Preview actions */}
+            <div className="flex items-center justify-center gap-6 w-full max-w-sm">
+              {/* Left: Retake */}
               <button
                 onClick={handleRetake}
-                className="px-4.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95 cursor-pointer flex-1 sm:flex-none justify-center"
+                title="Ambil Ulang"
+                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                🔄 Ambil Ulang
+                <RotateCcw size={18} className="stroke-[2.5]" />
               </button>
-              
-              <div className="flex gap-2.5 w-full sm:w-auto flex-1 sm:flex-none">
-                <button
-                  onClick={handleDownload}
-                  className="px-4.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow active:scale-95 cursor-pointer flex-1 sm:flex-none justify-center"
-                >
-                  📥 Download Foto
-                </button>
-                <button
-                  onClick={handleUsePhoto}
-                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-extrabold rounded-xl text-xs transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer flex-1 sm:flex-none justify-center"
-                >
-                  ✅ Gunakan Foto
-                </button>
-              </div>
-            </>
+
+              {/* Center: Use Photo */}
+              <button
+                onClick={handleUsePhoto}
+                title="Gunakan Foto"
+                className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-[#070b13] flex items-center justify-center shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/45 transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+              >
+                <Check size={28} className="stroke-[3]" />
+              </button>
+
+              {/* Right: Download */}
+              <button
+                onClick={handleDownload}
+                title="Download Foto"
+                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+              >
+                <Download size={18} className="stroke-[2.5]" />
+              </button>
+            </div>
           ) : (
-            <>
-              {/* Camera active actions */}
+            <div className="flex items-center justify-center gap-6 w-full max-w-sm">
+              {/* Left: Refresh GPS */}
               <button
                 onClick={fetchGPS}
                 disabled={gpsLoading || loading}
-                className="px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-850 hover:bg-slate-800 rounded-xl border border-slate-800/80 transition duration-200 disabled:opacity-50 flex-1 sm:flex-none justify-center"
+                title="Perbarui GPS"
+                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 disabled:opacity-40 flex-shrink-0 cursor-pointer"
               >
-                🔄 Refresh GPS
+                <RotateCcw size={18} className={`stroke-[2.5] ${gpsLoading ? 'animate-spin' : ''}`} />
               </button>
-              
+
+              {/* Center: Shutter button */}
               <button
                 onClick={handleCapture}
                 disabled={loading || errorMsg !== null}
-                className="px-7 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-900 font-extrabold rounded-xl flex items-center gap-2 shadow-lg hover:shadow-amber-500/10 transition-all duration-200 active:scale-95 flex-1 sm:flex-none justify-center cursor-pointer"
+                title="Ambil Foto"
+                className="w-16 h-16 rounded-full bg-amber-500 hover:bg-amber-400 text-[#070b13] flex items-center justify-center shadow-lg shadow-amber-500/25 hover:shadow-amber-500/45 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                📸 Ambil Foto
+                <Camera size={26} className="stroke-[2.5]" />
               </button>
 
+              {/* Right: Batal */}
               <button
                 onClick={onClose}
-                className="px-4.5 py-2.5 bg-slate-850 hover:bg-slate-800 border border-slate-800/80 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition flex-1 sm:flex-none justify-center"
+                title="Batal"
+                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                Batal
+                <X size={18} className="stroke-[2.5]" />
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
