@@ -397,8 +397,8 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                       value={zoomVal}
                       onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                       style={{
-                        appearance: 'slider-vertical',
-                        WebkitAppearance: 'slider-vertical',
+                        appearance: 'slider-vertical' as any,
+                        WebkitAppearance: 'slider-vertical' as any,
                         width: '6px',
                         height: '100px',
                         cursor: 'ns-resize',
