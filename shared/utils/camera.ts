@@ -68,8 +68,11 @@ export function drawWatermarkOnCanvas(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const width = canvas.width;
-  const height = canvas.height;
+  const width = canvas.width || 1280;
+  const height = canvas.height || 720;
+  
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
 
   // Watermark container layout - bottom left aligned floating box
   const margin = Math.max(15, Math.round(width * 0.02));
@@ -94,26 +97,23 @@ export function drawWatermarkOnCanvas(
   }
 
   const x = margin;
-  const y = height - margin - boxHeight;
+  // Ensure y is safely within bounds
+  const y = Math.max(margin, height - margin - boxHeight);
 
-  // Draw background box with rounded corners
+  // Draw background box with rounded corners (standard robust canvas vector paths)
   ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
   ctx.beginPath();
-  if ((ctx as any).roundRect) {
-    (ctx as any).roundRect(x, y, boxWidth, boxHeight, 10);
-  } else {
-    // Custom cross-browser rounded rectangle drawing
-    const r = 10;
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + boxWidth - r, y);
-    ctx.quadraticCurveTo(x + boxWidth, y, x + boxWidth, y + r);
-    ctx.lineTo(x + boxWidth, y + boxHeight - r);
-    ctx.quadraticCurveTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight);
-    ctx.lineTo(x + r, y + boxHeight);
-    ctx.quadraticCurveTo(x, y + boxHeight, x, y + boxHeight - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-  }
+  const r = 10;
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + boxWidth - r, y);
+  ctx.quadraticCurveTo(x + boxWidth, y, x + boxWidth, y + r);
+  ctx.lineTo(x + boxWidth, y + boxHeight - r);
+  ctx.quadraticCurveTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight);
+  ctx.lineTo(x + r, y + boxHeight);
+  ctx.quadraticCurveTo(x, y + boxHeight, x, y + boxHeight - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
   ctx.fill();
 
   // Draw vertical amber/gold accent line on the left

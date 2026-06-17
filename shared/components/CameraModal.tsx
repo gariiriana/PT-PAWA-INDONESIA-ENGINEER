@@ -208,11 +208,16 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setLoading(true);
     try {
       const video = videoRef.current;
-      
+      if (!video) throw new Error('Video element not found');
+
+      // Crucial fallbacks for video stream dimensions on mobile devices/webviews
+      const sourceWidth = video.videoWidth || video.clientWidth || 1280;
+      const sourceHeight = video.videoHeight || video.clientHeight || 720;
+
       // Calculate target scaled dimensions (limit max dimension to 1280px to compress memory and keep watermark size consistent)
       const maxDim = 1280;
-      let targetWidth = video.videoWidth;
-      let targetHeight = video.videoHeight;
+      let targetWidth = sourceWidth;
+      let targetHeight = sourceHeight;
       
       if (targetWidth > maxDim || targetHeight > maxDim) {
         if (targetWidth > targetHeight) {
@@ -233,13 +238,13 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
       // If simulated zoom is applied, crop the center of the video frame
       if (zoomVal > 1.0) {
-        const cropWidth = video.videoWidth / zoomVal;
-        const cropHeight = video.videoHeight / zoomVal;
-        const startX = (video.videoWidth - cropWidth) / 2;
-        const startY = (video.videoHeight - cropHeight) / 2;
+        const cropWidth = sourceWidth / zoomVal;
+        const cropHeight = sourceHeight / zoomVal;
+        const startX = (sourceWidth - cropWidth) / 2;
+        const startY = (sourceHeight - cropHeight) / 2;
         ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
       } else {
-        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, targetWidth, targetHeight);
+        ctx.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
       }
 
       // Do NOT block camera shutter capture waiting for GPS fetch. Use background-loaded gpsData or fallback.
