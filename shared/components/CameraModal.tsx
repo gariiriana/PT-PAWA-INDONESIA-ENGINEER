@@ -366,8 +366,9 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             ref={videoRefCallback}
             autoPlay
             playsInline
-            style={{ display: (!previewDataUrl && !errorMsg) ? 'block' : 'none' }}
-            className="w-full h-full object-cover transition-transform duration-200 ease-out"
+            className={`w-full h-full object-cover transition-transform duration-200 ease-out ${
+              (!previewDataUrl && !errorMsg) ? 'block' : 'hidden'
+            }`}
           />
 
           {/* Captured Image Preview */}
