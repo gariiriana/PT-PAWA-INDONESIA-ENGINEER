@@ -3,12 +3,14 @@ import { signOut } from 'firebase/auth';
 import { collection, addDoc, query, where, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   LogOut, FileText, Camera, FileDown, Plus, Eye, Search, Trash2, Edit, 
-  Download, UploadCloud, CheckCircle, X, Calendar, Layers, MapPin, EyeOff
+  Download, UploadCloud, CheckCircle, X, Calendar, Layers, MapPin, EyeOff,
+  Scissors
 } from 'lucide-react';
 import { auth, db } from '../config/firebase';
 import { 
   ReportEngineer, MaintenanceTemplate, MaintenanceStep, UserProfile,
-  uploadFileToFirestore, downloadFileFromFirestore, FirestoreImage
+  uploadFileToFirestore, downloadFileFromFirestore, FirestoreImage,
+  ImageCropModal
 } from '@shared/index';
 import CameraModal from '@shared/components/CameraModal';
 import jsPDF from 'jspdf';
@@ -128,6 +130,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   // Camera integration state
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraTargetCard, setCameraTargetCard] = useState<{ cardId: string } | null>(null);
+
+  // Image Crop State
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropCardId, setCropCardId] = useState<string | null>(null);
 
   // Search & Filter state for Archive
   const [searchQuery, setSearchQuery] = useState('');
@@ -387,6 +394,120 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       }
       return c;
     }));
+  };
+
+  const handleDownloadCardPhoto = async (card: CardData) => {
+    setLoading(true);
+    try {
+      let url = card.localUrl;
+      let isTempUrl = false;
+
+      if (!url && card.photoUrl) {
+        const result = await downloadFileFromFirestore(db, card.photoUrl);
+        url = result.dataUrl;
+        isTempUrl = true;
+      }
+
+      if (url) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `photo_${card.id}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (isTempUrl) {
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        showCustomAlert('Tidak ada foto untuk diunduh.', 'Pemberitahuan');
+      }
+    } catch (err) {
+      console.error('Download photo error:', err);
+      showCustomAlert('Gagal mengunduh foto.', 'Kesalahan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCropCardPhoto = async (card: CardData) => {
+    setLoading(true);
+    try {
+      let url = card.localUrl;
+      let isTempUrl = false;
+
+      if (!url && card.photoUrl) {
+        const result = await downloadFileFromFirestore(db, card.photoUrl);
+        url = result.dataUrl;
+        isTempUrl = true;
+      }
+
+      if (url) {
+        setCropCardId(card.id);
+        setCropImageSrc(url);
+        setIsCropModalOpen(true);
+      } else {
+        showCustomAlert('Tidak ada foto untuk dipotong.', 'Peringatan');
+      }
+    } catch (err) {
+      console.error('Prepare crop error:', err);
+      showCustomAlert('Gagal memproses foto untuk pemotongan.', 'Kesalahan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseCropModal = () => {
+    setIsCropModalOpen(false);
+    if (cropImageSrc && !cards.some(c => c.localUrl === cropImageSrc)) {
+      URL.revokeObjectURL(cropImageSrc);
+    }
+    setCropImageSrc(null);
+    setCropCardId(null);
+  };
+
+  const handleSaveCrop = async (croppedBlob: Blob, croppedDataUrl: string) => {
+    if (!cropCardId) return;
+
+    setLoading(true);
+    setIsCropModalOpen(false);
+
+    try {
+      const cardId = cropCardId;
+      
+      const oldCard = cards.find(c => c.id === cardId);
+      if (oldCard?.localUrl) {
+        URL.revokeObjectURL(oldCard.localUrl);
+      }
+
+      setCards(prev => prev.map((c) => {
+        if (c.id === cardId) {
+          return { ...c, localUrl: croppedDataUrl };
+        }
+        return c;
+      }));
+
+      if (cropImageSrc && !cards.some(c => c.localUrl === cropImageSrc) && cropImageSrc !== croppedDataUrl) {
+        URL.revokeObjectURL(cropImageSrc);
+      }
+      setCropImageSrc(null);
+      setCropCardId(null);
+
+      const attachmentId = await uploadFileToFirestore(db, croppedBlob, `cropped_${Date.now()}.jpg`);
+      
+      setCards(prev => prev.map((c) => {
+        if (c.id === cardId) {
+          return { ...c, photoUrl: attachmentId, localUrl: croppedDataUrl };
+        }
+        return c;
+      }));
+
+    } catch (err) {
+      console.error('Save cropped image error:', err);
+      showCustomAlert('Gagal menyimpan foto hasil pemotongan.', 'Crop Gagal');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateCardDescription = (cardId: string, value: string) => {
@@ -1081,14 +1202,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                   className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                                 />
                               )}
-                              <button
-                                type="button"
-                                title="Hapus Foto"
-                                onClick={() => handleRemovePhoto(card.id)}
-                                className="absolute top-2 right-2 bg-slate-950/80 backdrop-blur-md text-white p-1 hover:text-red-400 rounded-full border border-slate-800 text-[10px] transition"
-                              >
-                                <X size={12} />
-                              </button>
+                              {/* Centered Actions Overlay (visible on hover) */}
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                {/* Download */}
+                                <button
+                                  type="button"
+                                  title="Unduh Foto"
+                                  onClick={() => handleDownloadCardPhoto(card)}
+                                  className="w-11 h-11 rounded-xl bg-[#828200] border border-[#999900]/25 text-white flex items-center justify-center hover:bg-[#999900] transition-all active:scale-90 cursor-pointer shadow-lg"
+                                >
+                                  <Download size={18} />
+                                </button>
+
+                                {/* Crop */}
+                                <button
+                                  type="button"
+                                  title="Potong Foto"
+                                  onClick={() => handleCropCardPhoto(card)}
+                                  className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700/60 text-white flex items-center justify-center hover:bg-slate-750 transition-all active:scale-90 cursor-pointer shadow-lg"
+                                >
+                                  <Scissors size={18} />
+                                </button>
+
+                                {/* Remove Photo */}
+                                <button
+                                  type="button"
+                                  title="Hapus Foto"
+                                  onClick={() => handleRemovePhoto(card.id)}
+                                  className="w-11 h-11 rounded-xl bg-red-600 border border-red-500/60 text-white flex items-center justify-center hover:bg-red-500 transition-all active:scale-90 cursor-pointer shadow-lg"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <div className="w-full h-full grid grid-cols-2 text-center text-slate-400 text-[9px] font-bold">
@@ -1378,6 +1523,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         detailUnit={detailUnit}
         brandTitle="PT PAWA INDONESIA ENGINEER"
       />
+
+      {/* Image Crop Modal Overlay */}
+      {isCropModalOpen && cropImageSrc && (
+        <ImageCropModal
+          isOpen={isCropModalOpen}
+          imageSrc={cropImageSrc}
+          onSave={handleSaveCrop}
+          onCancel={handleCloseCropModal}
+        />
+      )}
 
       {/* ----------------- PREVIEW MODAL ----------------- */}
       {isPreviewModalOpen && previewReport && (
