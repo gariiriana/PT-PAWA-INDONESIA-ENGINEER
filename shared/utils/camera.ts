@@ -146,7 +146,7 @@ export function drawWatermarkOnCanvas(
     ctx.closePath();
     ctx.fill();
 
-    // Draw vertical amber/gold accent line on the left
+    // Draw vertical yellow accent line on the left (matching user's blueprint layout with yellow accent)
     ctx.fillStyle = '#f59e0b';
     ctx.fillRect(x + padding, y + padding, 4, boxHeight - (padding * 2));
 
@@ -154,8 +154,8 @@ export function drawWatermarkOnCanvas(
     let currentY = y + padding + baseFontSize - 2;
     const textLeft = x + padding + 12;
 
-    // Line 1: Brand Title (Gold, bold)
-    ctx.fillStyle = '#f59e0b';
+    // Line 1: Brand Title (White, bold, matching user's blueprint layout)
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${baseFontSize}px ${fontFamily}`;
     const displayBrand = meta.brandTitle || 'PT PAWA INDONESIA ENGINEER';
     ctx.fillText(displayBrand, textLeft, currentY);
@@ -178,9 +178,9 @@ export function drawWatermarkOnCanvas(
     ctx.fillText(meta.timestamp, textLeft, currentY);
     currentY += (baseFontSize - 2) + gap;
 
-    // Line 4: Pin icon + Coordinates (Gold, bold)
-    // Draw red pin circle
-    ctx.fillStyle = '#EF4444';
+    // Line 4: Pin icon + Coordinates (Yellow, bold)
+    // Draw yellow pin circle (matching user's blueprint layout with yellow accent)
+    ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
     const pinX = textLeft + 2.5;
     const pinY = currentY - 3;
@@ -193,8 +193,8 @@ export function drawWatermarkOnCanvas(
     ctx.closePath();
     ctx.fill();
 
-    // Coordinates text with accuracy
-    ctx.fillStyle = '#f59e0b';
+    // Coordinates text with accuracy (White text, matching user's blueprint layout)
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${baseFontSize - 2}px ${fontFamily}`;
     const accuracyStr = meta.accuracy ? ` (±${Math.round(meta.accuracy)}m)` : ' (±37m)';
     const coordText = meta.latitude && meta.longitude 
@@ -230,7 +230,10 @@ export async function applyWatermark(
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Do not set crossOrigin for inline data URIs to avoid CORS failure in strict mobile WebViews
+    if (!imageSrc.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     
     img.onload = () => {
       const canvas = document.createElement('canvas');

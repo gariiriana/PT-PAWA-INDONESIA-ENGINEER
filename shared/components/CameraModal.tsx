@@ -599,12 +599,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
               {/* Bottom Left Corner Overlay: Watermark Preview */}
               <div className="camera-watermark-preview bg-black/60 backdrop-blur-md border border-white/10 p-3.5 rounded-xl text-left shadow-xl">
-                {/* Vertical yellow line */}
+                {/* Vertical yellow line (matching user's blueprint layout with yellow accent) */}
                 <div className="w-1.5 bg-amber-500 rounded-full self-stretch flex-shrink-0"></div>
                 
                 {/* Text content block */}
                 <div className="camera-watermark-text-block">
-                  <p className="camera-watermark-item text-amber-500 text-xs font-bold font-sans uppercase tracking-wide">
+                  <p className="camera-watermark-item text-white text-xs font-bold font-sans uppercase tracking-wide">
                     {brandTitle || "PT PAWA INDONESIA ENGINEER"}
                   </p>
                   <p className="camera-watermark-item text-white text-[10px] font-bold font-sans uppercase tracking-wide">
@@ -613,8 +613,9 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                   <p className="camera-watermark-item text-slate-300 text-[9px] font-medium font-mono">
                     {gpsData?.timestamp || new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB'}
                   </p>
-                  <p className="camera-watermark-item text-amber-500 text-[9px] font-bold font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block mr-0.5 flex-shrink-0 border border-white/20"></span>
+                  <p className="camera-watermark-item text-white text-[9px] font-bold font-mono flex items-center gap-1">
+                    {/* Yellow pin indicator (matching user's blueprint layout with yellow accent) */}
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block mr-0.5 flex-shrink-0 border border-white/20"></span>
                     {gpsData?.latitude && gpsData?.longitude 
                       ? `${gpsData.latitude.toFixed(6)}, ${gpsData.longitude.toFixed(6)} (±${gpsData.accuracy ? Math.round(gpsData.accuracy) : 37}m)` 
                       : 'Mencari sinyal GPS...'}

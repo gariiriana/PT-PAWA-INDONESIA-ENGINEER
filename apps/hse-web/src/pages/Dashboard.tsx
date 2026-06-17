@@ -168,13 +168,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
 
   // Smart Camera capture result
   const handleCaptureResult = (blob: Blob, dataUrl: string) => {
-    // Save raw capture and open drawing/editor interface
-    setRawImageSrc(dataUrl);
+    // Create a parent-owned Object URL to prevent broken image load in editor when modal closes
+    const localUrl = URL.createObjectURL(blob);
+    setRawImageSrc(localUrl);
     setIsEditingImage(true);
   };
 
   // Saved edited image markup
   const handleSaveEditedImage = (editedBlob: Blob, editedDataUrl: string) => {
+    // Revoke the temporary parent-owned Object URL to prevent memory leaks
+    if (rawImageSrc) {
+      URL.revokeObjectURL(rawImageSrc);
+    }
+    setRawImageSrc(null);
+
     setPhotoBlob(editedBlob);
     setWatermarkedPhotoUrl(editedDataUrl);
     setIsEditingImage(false);
@@ -483,7 +490,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                 <ImageEditor
                   imageSrc={rawImageSrc}
                   onSave={handleSaveEditedImage}
-                  onCancel={() => setIsEditingImage(false)}
+                  onCancel={() => {
+                    if (rawImageSrc) {
+                      URL.revokeObjectURL(rawImageSrc);
+                    }
+                    setRawImageSrc(null);
+                    setIsEditingImage(false);
+                  }}
                 />
               ) : (
                 <div className="glass-panel p-6 rounded-2xl border border-slate-800">

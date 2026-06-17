@@ -340,10 +340,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setLoading(true);
       try {
         const { cardId } = cameraTargetCard;
+        // Create an independent Object URL owned by the parent to prevent race conditions on modal close
+        const localUrl = URL.createObjectURL(blob);
+        
         // Set localUrl instantly to skip card-level loading text
         setCards(prev => prev.map((c) => {
           if (c.id === cardId) {
-            return { ...c, localUrl: dataUrl };
+            return { ...c, localUrl };
           }
           return c;
         }));
@@ -351,7 +354,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         const attachmentId = await uploadFileToFirestore(db, blob, `captured_${Date.now()}.jpg`);
         setCards(prev => prev.map((c) => {
           if (c.id === cardId) {
-            return { ...c, photoUrl: attachmentId, localUrl: dataUrl };
+            return { ...c, photoUrl: attachmentId, localUrl };
           }
           return c;
         }));
