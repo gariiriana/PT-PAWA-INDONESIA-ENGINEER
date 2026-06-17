@@ -420,6 +420,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
           </div>
           <button
             onClick={onCancel}
+            title="Batal"
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
           >
             <X size={18} />
@@ -526,6 +527,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setZoom(prev => Math.max(1.0, prev - 0.2))}
+                title="Perkecil Zoom"
                 className="text-slate-500 hover:text-[#999900] cursor-pointer"
               >
                 <ZoomOut size={16} />
@@ -537,11 +539,13 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
                 step="0.1"
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
+                title="Zoom Slider"
                 className="flex-1 accent-[#828200] bg-slate-950 h-1 rounded-lg cursor-pointer"
               />
               <button
                 type="button"
                 onClick={() => setZoom(prev => Math.min(4.0, prev + 0.2))}
+                title="Perbesar Zoom"
                 className="text-slate-500 hover:text-[#999900] cursor-pointer"
               >
                 <ZoomIn size={16} />
@@ -563,6 +567,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setRotation(prev => (prev - 90 < 0 ? 270 : prev - 90))}
+                title="Putar Kiri 90 Derajat"
                 className="text-[10px] text-[#999900] font-bold border border-[#828200]/40 px-2 py-0.5 rounded bg-[#828200]/5 hover:bg-[#828200]/15 transition cursor-pointer"
               >
                 -90°
@@ -574,11 +579,13 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
                 step="1"
                 value={rotation}
                 onChange={(e) => setRotation(parseInt(e.target.value))}
+                title="Rotation Slider"
                 className="flex-1 accent-[#828200] bg-slate-950 h-1 rounded-lg cursor-pointer"
               />
               <button
                 type="button"
                 onClick={() => setRotation(prev => (prev + 90 > 360 ? 90 : prev + 90))}
+                title="Putar Kanan 90 Derajat"
                 className="text-[10px] text-[#999900] font-bold border border-[#828200]/40 px-2 py-0.5 rounded bg-[#828200]/5 hover:bg-[#828200]/15 transition cursor-pointer"
               >
                 +90°
