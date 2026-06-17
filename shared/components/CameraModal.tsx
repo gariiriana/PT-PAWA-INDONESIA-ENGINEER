@@ -210,9 +210,28 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       const video = videoRef.current;
       if (!video) throw new Error('Video element not found');
 
-      // Crucial fallbacks for video stream dimensions on mobile devices/webviews
-      const sourceWidth = video.videoWidth || video.clientWidth || 1280;
-      const sourceHeight = video.videoHeight || video.clientHeight || 720;
+      // Wait for video to have valid intrinsic dimensions (critical on mobile!)
+      // Some mobile browsers need a moment to report videoWidth/videoHeight
+      let waitAttempts = 0;
+      while (video.videoWidth === 0 && waitAttempts < 20) {
+        await new Promise(r => setTimeout(r, 50));
+        waitAttempts++;
+      }
+
+      // Determine source dimensions with robust fallback chain
+      const sourceWidth = video.videoWidth || video.clientWidth || video.offsetWidth || 1280;
+      const sourceHeight = video.videoHeight || video.clientHeight || video.offsetHeight || 720;
+
+      console.log('[Capture] Video dimensions:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        clientWidth: video.clientWidth,
+        clientHeight: video.clientHeight,
+        offsetWidth: video.offsetWidth,
+        offsetHeight: video.offsetHeight,
+        resolved: `${sourceWidth}x${sourceHeight}`,
+        waitAttempts,
+      });
 
       // Calculate target scaled dimensions (limit max dimension to 1280px to compress memory and keep watermark size consistent)
       const maxDim = 1280;
@@ -229,6 +248,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         }
       }
 
+      // Safety: ensure minimum dimensions
+      targetWidth = Math.max(targetWidth, 320);
+      targetHeight = Math.max(targetHeight, 240);
+
+      console.log('[Capture] Canvas target:', targetWidth, 'x', targetHeight);
+
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
       canvas.height = targetHeight;
@@ -244,8 +269,16 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         const startY = (video.videoHeight - cropHeight) / 2;
         ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
       } else {
-        // Use standard 5-argument drawImage to draw the entire video stream frame safely without crop coordinates
+        // Use standard 5-argument drawImage to draw the entire video stream frame safely
         ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      }
+
+      // Verify that the video frame was actually drawn (not blank)
+      try {
+        const checkPixel = ctx.getImageData(Math.floor(targetWidth / 2), Math.floor(targetHeight / 2), 1, 1).data;
+        console.log('[Capture] Center pixel RGBA:', checkPixel[0], checkPixel[1], checkPixel[2], checkPixel[3]);
+      } catch (e) {
+        console.warn('[Capture] Could not verify pixel data (CORS?):', e);
       }
 
       // Do NOT block camera shutter capture waiting for GPS fetch. Use background-loaded gpsData or fallback.
@@ -255,17 +288,20 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       };
 
       // Apply Burn-on-Apply Watermark directly onto the captured canvas!
+      // CRITICAL: Pass the SAME ctx that already has the video frame drawn,
+      // so we don't re-call getContext('2d') which can cause issues on some mobile browsers.
       drawWatermarkOnCanvas(canvas, {
         ...activeGps,
         detailUnit,
         brandTitle,
-      });
+      }, ctx);
 
       // Output compressed blob
       const watermarkedBlob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
             if (blob) {
+              console.log('[Capture] Blob created, size:', blob.size);
               resolve(blob);
             } else {
               reject(new Error('Canvas conversion failed'));
@@ -282,7 +318,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       setPreviewBlob(watermarkedBlob);
       setPreviewDataUrl(watermarkedDataUrl);
     } catch (err: any) {
-      console.error('Error capturing image:', err);
+      console.error('[Capture] Error capturing image:', err);
       setErrorMsg('Gagal mengambil gambar atau menambahkan watermark.');
     } finally {
       setLoading(false);

@@ -60,127 +60,164 @@ export async function getGPSData(): Promise<WatermarkData> {
 
 /**
  * Draw watermark elements synchronously on a provided canvas element.
+ * Accepts an optional pre-existing CanvasRenderingContext2D to avoid
+ * re-calling getContext('2d') which can cause issues on some mobile browsers.
+ * 
+ * CRITICAL: This function MUST NOT reassign canvas.width or canvas.height,
+ * because doing so clears the entire canvas bitmap (erasing the photo).
  */
 export function drawWatermarkOnCanvas(
   canvas: HTMLCanvasElement,
-  meta: WatermarkData
+  meta: WatermarkData,
+  existingCtx?: CanvasRenderingContext2D
 ) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  try {
+    const ctx = existingCtx || canvas.getContext('2d');
+    if (!ctx) {
+      console.error('[Watermark] Failed to get canvas 2D context');
+      return;
+    }
 
-  const width = canvas.width || 1280;
-  const height = canvas.height || 720;
-  
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
+    // NEVER reassign canvas.width/height here — it clears the canvas!
+    const width = canvas.width;
+    const height = canvas.height;
 
-  // Watermark container layout - bottom left aligned floating box
-  const margin = Math.max(15, Math.round(width * 0.02));
-  const boxWidth = Math.min(500, Math.round(width * 0.6), width - (margin * 2));
-  const baseFontSize = Math.max(11, Math.round(width * 0.015));
+    if (width <= 0 || height <= 0) {
+      console.error('[Watermark] Canvas has zero/negative dimensions:', width, 'x', height);
+      return;
+    }
 
-  const padding = Math.max(10, Math.round(width * 0.012));
-  const gap = Math.max(4, Math.round(width * 0.005));
+    console.log('[Watermark] Drawing on canvas:', width, 'x', height);
 
-  // Calculate address text wrap
-  ctx.font = `${baseFontSize - 3}px Roboto, sans-serif`;
-  const addressLines = meta.address ? wrapText(ctx, meta.address, boxWidth - (padding * 2 + 16)) : [];
+    // Use SYSTEM fonts only — Roboto may not be loaded on mobile browsers
+    const fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
-  // Calculate dynamic box height
-  let boxHeight = padding * 2;
-  boxHeight += baseFontSize + gap; // Brand Title line
-  boxHeight += (baseFontSize - 1) + gap; // Subtitle / Activity line
-  boxHeight += (baseFontSize - 2) + gap; // Timestamp line
-  boxHeight += (baseFontSize - 2) + gap; // Coordinates line
-  if (addressLines.length > 0) {
-    boxHeight += addressLines.length * (baseFontSize - 3 + gap);
-  }
+    // Watermark container layout - bottom left aligned floating box
+    const margin = Math.max(15, Math.round(width * 0.02));
+    const boxWidth = Math.min(500, Math.round(width * 0.6), width - (margin * 2));
+    const baseFontSize = Math.max(11, Math.round(width * 0.015));
 
-  const x = margin;
-  // Ensure y is safely within bounds
-  const y = Math.max(margin, height - margin - boxHeight);
+    const padding = Math.max(10, Math.round(width * 0.012));
+    const gap = Math.max(4, Math.round(width * 0.005));
 
-  // Draw background box with rounded corners (standard robust canvas vector paths)
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.beginPath();
-  const r = 10;
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + boxWidth - r, y);
-  ctx.quadraticCurveTo(x + boxWidth, y, x + boxWidth, y + r);
-  ctx.lineTo(x + boxWidth, y + boxHeight - r);
-  ctx.quadraticCurveTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight);
-  ctx.lineTo(x + r, y + boxHeight);
-  ctx.quadraticCurveTo(x, y + boxHeight, x, y + boxHeight - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fill();
+    // Calculate address text wrap — set font BEFORE measureText
+    ctx.font = `${baseFontSize - 3}px ${fontFamily}`;
+    const addressLines = meta.address ? wrapText(ctx, meta.address, Math.max(50, boxWidth - (padding * 2 + 16))) : [];
 
-  // Draw vertical amber/gold accent line on the left
-  ctx.fillStyle = '#f59e0b';
-  ctx.fillRect(x + padding, y + padding, 4, boxHeight - (padding * 2));
+    // Calculate dynamic box height
+    let boxHeight = padding * 2;
+    boxHeight += baseFontSize + gap; // Brand Title line
+    boxHeight += (baseFontSize - 1) + gap; // Subtitle / Activity line
+    boxHeight += (baseFontSize - 2) + gap; // Timestamp line
+    boxHeight += (baseFontSize - 2) + gap; // Coordinates line
+    if (addressLines.length > 0) {
+      boxHeight += addressLines.length * (baseFontSize - 3 + gap);
+    }
 
-  // Draw text metadata
-  let currentY = y + padding + baseFontSize - 2;
-  const textLeft = x + padding + 12;
+    const x = margin;
+    // Ensure y is safely within bounds
+    const y = Math.max(margin, height - margin - boxHeight);
 
-  // Line 1: Brand Title (Gold, bold)
-  ctx.fillStyle = '#f59e0b';
-  ctx.font = `bold ${baseFontSize}px Roboto, sans-serif`;
-  const displayBrand = meta.brandTitle || 'PT PAWA INDONESIA ENGINEER';
-  ctx.fillText(displayBrand, textLeft, currentY);
-  currentY += baseFontSize + gap;
+    console.log('[Watermark] Box params:', { x, y, boxWidth, boxHeight, baseFontSize, margin });
 
-  // Line 2: Activity / Unit (White, bold)
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${baseFontSize - 1}px Roboto, sans-serif`;
-  
-  const defaultActivity = displayBrand.includes('HSE')
-    ? 'KEGIATAN: DOKUMENTASI HSE'
-    : 'KEGIATAN: DOKUMENTASI ENGINEER';
-  const activityText = meta.detailUnit ? `UNIT: ${meta.detailUnit.toUpperCase()}` : defaultActivity;
-  ctx.fillText(activityText, textLeft, currentY);
-  currentY += (baseFontSize - 1) + gap;
+    // ---- Draw background box (simple fillRect, no fancy rounded corners that could fail) ----
+    ctx.save();
 
-  // Line 3: Timestamp (Slate light)
-  ctx.fillStyle = '#e2e8f0';
-  ctx.font = `${baseFontSize - 2}px Roboto, sans-serif`;
-  ctx.fillText(meta.timestamp, textLeft, currentY);
-  currentY += (baseFontSize - 2) + gap;
+    // Background box with rounded corners using clip path
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    const r = Math.min(10, boxWidth * 0.02);
+    
+    ctx.beginPath();
+    // Use roundRect if available (modern browsers), else fallback to simple rect
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, boxWidth, boxHeight, r);
+    } else {
+      // Fallback: manual rounded rectangle path
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + boxWidth - r, y);
+      ctx.arcTo(x + boxWidth, y, x + boxWidth, y + r, r);
+      ctx.lineTo(x + boxWidth, y + boxHeight - r);
+      ctx.arcTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight, r);
+      ctx.lineTo(x + r, y + boxHeight);
+      ctx.arcTo(x, y + boxHeight, x, y + boxHeight - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+    }
+    ctx.closePath();
+    ctx.fill();
 
-  // Line 4: Pin + Coordinates (Gold, bold)
-  // Draw red pin circle
-  ctx.fillStyle = '#EF4444';
-  ctx.beginPath();
-  const pinX = textLeft + 2.5;
-  const pinY = currentY - 3;
-  ctx.arc(pinX, pinY, 2.5, 0, 2 * Math.PI);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(pinX - 2.5, pinY);
-  ctx.lineTo(pinX + 2.5, pinY);
-  ctx.lineTo(pinX, pinY + 4);
-  ctx.closePath();
-  ctx.fill();
+    // Draw vertical amber/gold accent line on the left
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(x + padding, y + padding, 4, boxHeight - (padding * 2));
 
-  // Coordinates text with accuracy
-  ctx.fillStyle = '#f59e0b';
-  ctx.font = `bold ${baseFontSize - 2}px Roboto, sans-serif`;
-  const accuracyStr = meta.accuracy ? ` (±${Math.round(meta.accuracy)}m)` : ' (±37m)';
-  const coordText = meta.latitude && meta.longitude 
-    ? `${meta.latitude.toFixed(6)}, ${meta.longitude.toFixed(6)}${accuracyStr}` 
-    : 'GPS: Lokasi tidak tersedia';
-  ctx.fillText(coordText, textLeft + 9, currentY);
-  currentY += (baseFontSize - 2) + gap;
+    // ---- Draw text metadata ----
+    let currentY = y + padding + baseFontSize - 2;
+    const textLeft = x + padding + 12;
 
-  // Line 5: Address
-  if (addressLines.length > 0) {
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = `${baseFontSize - 3}px Roboto, sans-serif`;
-    addressLines.forEach((line) => {
-      ctx.fillText(line, textLeft, currentY);
-      currentY += (baseFontSize - 3) + gap;
-    });
+    // Line 1: Brand Title (Gold, bold)
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = `bold ${baseFontSize}px ${fontFamily}`;
+    const displayBrand = meta.brandTitle || 'PT PAWA INDONESIA ENGINEER';
+    ctx.fillText(displayBrand, textLeft, currentY);
+    currentY += baseFontSize + gap;
+
+    // Line 2: Activity / Unit (White, bold)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${baseFontSize - 1}px ${fontFamily}`;
+    
+    const defaultActivity = displayBrand.includes('HSE')
+      ? 'KEGIATAN: DOKUMENTASI HSE'
+      : 'KEGIATAN: DOKUMENTASI ENGINEER';
+    const activityText = meta.detailUnit ? `UNIT: ${meta.detailUnit.toUpperCase()}` : defaultActivity;
+    ctx.fillText(activityText, textLeft, currentY);
+    currentY += (baseFontSize - 1) + gap;
+
+    // Line 3: Timestamp (Slate light)
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = `${baseFontSize - 2}px ${fontFamily}`;
+    ctx.fillText(meta.timestamp, textLeft, currentY);
+    currentY += (baseFontSize - 2) + gap;
+
+    // Line 4: Pin icon + Coordinates (Gold, bold)
+    // Draw red pin circle
+    ctx.fillStyle = '#EF4444';
+    ctx.beginPath();
+    const pinX = textLeft + 2.5;
+    const pinY = currentY - 3;
+    ctx.arc(pinX, pinY, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(pinX - 2.5, pinY);
+    ctx.lineTo(pinX + 2.5, pinY);
+    ctx.lineTo(pinX, pinY + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Coordinates text with accuracy
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = `bold ${baseFontSize - 2}px ${fontFamily}`;
+    const accuracyStr = meta.accuracy ? ` (±${Math.round(meta.accuracy)}m)` : ' (±37m)';
+    const coordText = meta.latitude && meta.longitude 
+      ? `${meta.latitude.toFixed(6)}, ${meta.longitude.toFixed(6)}${accuracyStr}` 
+      : 'GPS: Lokasi tidak tersedia';
+    ctx.fillText(coordText, textLeft + 9, currentY);
+    currentY += (baseFontSize - 2) + gap;
+
+    // Line 5: Address
+    if (addressLines.length > 0) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `${baseFontSize - 3}px ${fontFamily}`;
+      addressLines.forEach((line) => {
+        ctx.fillText(line, textLeft, currentY);
+        currentY += (baseFontSize - 3) + gap;
+      });
+    }
+
+    ctx.restore();
+    console.log('[Watermark] Successfully drawn watermark on canvas');
+
+  } catch (err) {
+    console.error('[Watermark] CRITICAL: Error drawing watermark:', err);
   }
 }
 
@@ -224,8 +261,8 @@ export async function applyWatermark(
       // Draw original image
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Draw watermark
-      drawWatermarkOnCanvas(canvas, meta);
+      // Draw watermark — pass existing ctx to avoid re-fetching
+      drawWatermarkOnCanvas(canvas, meta, ctx);
 
       // Output compressed blob
       canvas.toBlob(
@@ -253,15 +290,20 @@ export async function applyWatermark(
  * Text wrapper to split address if it is too long for the canvas width.
  */
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  if (!text || maxWidth <= 0) return [];
+  
   const words = text.split(' ');
   const lines: string[] = [];
   let currentLine = '';
 
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
-    const width = ctx.measureText(currentLine + ' ' + word).width;
-    if (width < maxWidth) {
-      currentLine += (currentLine ? ' ' : '') + word;
+    const testLine = currentLine ? currentLine + ' ' + word : word;
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    
+    if (testWidth < maxWidth || !currentLine) {
+      currentLine = testLine;
     } else {
       lines.push(currentLine);
       currentLine = word;
