@@ -47,28 +47,28 @@ service cloud.firestore {
     match /reports_engineer/{reportId} {
       allow read: if isAuthenticated(); // All roles can read for monitoring
       allow create, update: if isAuthenticated() && (isEngineer() || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && (resource.data.engineerId == request.auth.uid || isSiteManager() || isAdmin());
     }
 
     // Rules for HSE Incident & Hazard Reports
     match /reports_hse/{reportId} {
       allow read: if isAuthenticated(); // All roles can read for monitoring
       allow create, update: if isAuthenticated() && (isHSE() || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && (resource.data.hseId == request.auth.uid || isSiteManager() || isAdmin());
     }
 
     // Rules for Permit To Work (PTW)
     match /ptw/{ptwId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && (isEngineer() || isHSE() || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && (resource.data.engineerId == request.auth.uid || resource.data.hseId == request.auth.uid || isSiteManager() || isAdmin());
     }
     
     // Rules for Safety Inspections
     match /safety_inspections/{inspectionId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && (isHSE() || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && (resource.data.hseId == request.auth.uid || isSiteManager() || isAdmin());
     }
 
     // Rules for Attachments (chunked uploads)

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RotateCcw, Check, Sparkles, MapPin, X, RefreshCw, Zap, Plus, Minus, Download } from 'lucide-react';
 import { getGPSData, applyWatermark, WatermarkData } from '../utils/camera';
+import './CameraModal.css';
 
 interface CameraModalProps {
   isOpen: boolean;
@@ -35,6 +36,18 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   // Flashlight & Zoom state
   const [torchOn, setTorchOn] = useState(false);
   const [zoomVal, setZoomVal] = useState<number>(1.0);
+
+  // Callback ref to dynamically set scale style on mount/update and avoid JSX inline style warning
+  const videoRefCallback = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoRef.current = node;
+      if (node) {
+        node.style.transform = `scale(${zoomVal})`;
+        node.style.transformOrigin = 'center';
+      }
+    },
+    [zoomVal]
+  );
 
   // Initialize camera stream and search devices
   useEffect(() => {
@@ -78,7 +91,24 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         audio: false,
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (firstErr) {
+        console.warn('Initial camera access failed, trying ideal video fallback:', firstErr);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch (secondErr) {
+          console.warn('Ideal video fallback failed, trying basic video constraint:', secondErr);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -259,7 +289,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
       {/* Card container with Premium Dark Palette */}
-      <div className="relative w-full max-w-2xl bg-[#0b0f19] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-md md:max-w-2xl bg-[#0b0f19] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
         
         {/* Header (Top Bar matching user's mock exactly) */}
         <div className="p-4 border-b border-slate-800/80 flex justify-between items-center bg-[#0d1322]/90">
@@ -312,11 +342,10 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             </div>
           ) : (
             <video
-              ref={videoRef}
+              ref={videoRefCallback}
               autoPlay
               playsInline
               className="w-full h-full object-cover transition-transform duration-200 ease-out"
-              style={{ transform: `scale(${zoomVal})`, transformOrigin: 'center' }}
             />
           )}
 
@@ -334,21 +363,21 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           {!previewDataUrl && !errorMsg && (
             <>
               {/* Top-Right Label: ✓ TERVERIFIKASI */}
-              <div className="absolute top-4 right-4 bg-emerald-950/70 backdrop-blur-md border border-emerald-500/35 px-3 py-1 rounded-full flex items-center gap-1.5 z-20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span className="text-[10px] font-extrabold text-emerald-400 tracking-wider">✓ TERVERIFIKASI</span>
+              <div className="camera-verified-badge bg-emerald-950/70 backdrop-blur-md border border-emerald-500/35 px-3 py-1 rounded-full text-emerald-400 font-extrabold text-[10px] tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1"></span>
+                ✓ TERVERIFIKASI
               </div>
 
               {/* Focus L-Brackets Corners */}
-              <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-white/50 rounded-tl-sm"></div>
-                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-white/50 rounded-tr-sm"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-white/50 rounded-bl-sm"></div>
-                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-white/50 rounded-br-sm"></div>
+              <div className="camera-focus-corners">
+                <div className="camera-corner-tl w-6 h-6 border-t-2 border-l-2 border-white/50 rounded-tl-sm"></div>
+                <div className="camera-corner-tr w-6 h-6 border-t-2 border-r-2 border-white/50 rounded-tr-sm"></div>
+                <div className="camera-corner-bl w-6 h-6 border-b-2 border-l-2 border-white/50 rounded-bl-sm"></div>
+                <div className="camera-corner-br w-6 h-6 border-b-2 border-r-2 border-white/50 rounded-br-sm"></div>
               </div>
 
               {/* Left Column Controls: Camera Switch and Torch */}
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-20">
+              <div className="camera-left-controls">
                 {/* Switch Camera */}
                 <button
                   type="button"
@@ -375,7 +404,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               </div>
 
               {/* Right Column Controls: Zoom Slider */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5 z-20">
+              <div className="camera-zoom-controls">
                 <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex flex-col items-center gap-3">
                   {/* Zoom-In button */}
                   <button
@@ -396,14 +425,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                       step="0.1"
                       value={zoomVal}
                       onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                      style={{
-                        appearance: 'slider-vertical' as any,
-                        WebkitAppearance: 'slider-vertical' as any,
-                        width: '6px',
-                        height: '100px',
-                        cursor: 'ns-resize',
-                        accentColor: '#f59e0b',
-                      }}
+                      className="zoom-slider"
                       title="Zoom Slider"
                     />
                   </div>
@@ -427,26 +449,26 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
               {/* Bottom Left Corner Overlay: Watermark Preview */}
               {gpsData && (
-                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 p-3.5 rounded-xl text-left max-w-[85%] pointer-events-none z-20 flex gap-3 shadow-xl">
+                <div className="camera-watermark-preview bg-black/60 backdrop-blur-md border border-white/10 p-3.5 rounded-xl text-left shadow-xl">
                   {/* Vertical yellow line */}
                   <div className="w-1.5 bg-amber-500 rounded-full self-stretch flex-shrink-0"></div>
                   
                   {/* Text content block */}
-                  <div className="flex flex-col gap-0.5">
-                    <p className="text-amber-500 text-xs font-bold font-sans uppercase tracking-wide">
+                  <div className="camera-watermark-text-block">
+                    <p className="camera-watermark-item text-amber-500 text-xs font-bold font-sans uppercase tracking-wide">
                       PT PAWA INDONESIA ENGINEER
                     </p>
-                    <p className="text-white text-[10px] font-bold font-sans uppercase tracking-wide">
+                    <p className="camera-watermark-item text-white text-[10px] font-bold font-sans uppercase tracking-wide">
                       {detailUnit ? `UNIT: ${detailUnit.toUpperCase()}` : 'KEGIATAN: DOKUMENTASI ENGINEER'}
                     </p>
-                    <p className="text-slate-300 text-[9px] font-medium font-mono">
+                    <p className="camera-watermark-item text-slate-300 text-[9px] font-medium font-mono">
                       {gpsData.timestamp}
                     </p>
-                    <p className="text-amber-500 text-[9px] font-bold font-mono flex items-center gap-1">
+                    <p className="camera-watermark-item text-amber-500 text-[9px] font-bold font-mono flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block mr-0.5 flex-shrink-0 border border-white/20"></span>
                       {gpsData.latitude?.toFixed(6) ?? '-'}, {gpsData.longitude?.toFixed(6) ?? '-'} (±{gpsData.accuracy ? Math.round(gpsData.accuracy) : 37}m)
                     </p>
-                    <p className="text-slate-400 text-[8px] font-medium leading-relaxed font-sans line-clamp-2 max-w-[280px] mt-0.5">
+                    <p className="camera-watermark-address text-slate-400 text-[8px] font-medium leading-relaxed font-sans line-clamp-2 mt-0.5">
                       {gpsData.address ?? 'Mengambil alamat lokasi...'}
                     </p>
                   </div>
@@ -464,9 +486,9 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               <button
                 onClick={handleRetake}
                 title="Ambil Ulang"
-                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+                className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                <RotateCcw size={18} className="stroke-[2.5]" />
+                <RotateCcw size={18} className="stroke-[2]" />
               </button>
 
               {/* Center: Use Photo */}
@@ -482,40 +504,40 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               <button
                 onClick={handleDownload}
                 title="Download Foto"
-                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+                className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                <Download size={18} className="stroke-[2.5]" />
+                <Download size={18} className="stroke-[2]" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-center gap-6 w-full max-w-sm">
+            <div className="flex items-center justify-center gap-6 w-full max-w-xs">
               {/* Left: Refresh GPS */}
               <button
                 onClick={fetchGPS}
                 disabled={gpsLoading || loading}
                 title="Perbarui GPS"
-                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 disabled:opacity-40 flex-shrink-0 cursor-pointer"
+                className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 disabled:opacity-40 flex-shrink-0 cursor-pointer"
               >
-                <RotateCcw size={18} className={`stroke-[2.5] ${gpsLoading ? 'animate-spin' : ''}`} />
+                <RotateCcw size={18} className={`stroke-[2] ${gpsLoading ? 'animate-spin' : ''}`} />
               </button>
 
-              {/* Center: Shutter button */}
+              {/* Center: Shutter button (Premium concentric design matching reference) */}
               <button
                 onClick={handleCapture}
                 disabled={loading || errorMsg !== null}
                 title="Ambil Foto"
-                className="w-16 h-16 rounded-full bg-amber-500 hover:bg-amber-400 text-[#070b13] flex items-center justify-center shadow-lg shadow-amber-500/25 hover:shadow-amber-500/45 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+                className="w-20 h-20 rounded-full bg-slate-800/60 border-4 border-slate-700/50 flex items-center justify-center hover:bg-slate-800/90 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xl"
               >
-                <Camera size={26} className="stroke-[2.5]" />
+                <div className="w-12 h-12 rounded-full bg-slate-100 shadow-inner hover:bg-white transition-all"></div>
               </button>
 
               {/* Right: Batal */}
               <button
                 onClick={onClose}
                 title="Batal"
-                className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
+                className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center shadow transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer"
               >
-                <X size={18} className="stroke-[2.5]" />
+                <X size={18} className="stroke-[2]" />
               </button>
             </div>
           )}

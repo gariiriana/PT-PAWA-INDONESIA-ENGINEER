@@ -15,7 +15,7 @@ export interface GPSCoords {
 }
 
 // Maintenance Template Types
-export type MaintenanceTemplate = 'AHU' | 'Chiller' | 'Trafo' | 'VRV' | 'General';
+export type MaintenanceTemplate = 'AHU' | 'Chiller' | 'Trafo' | 'VRV' | 'General' | 'Neutra' | string;
 
 export interface MaintenanceStep {
   stepNumber: number;
@@ -23,6 +23,7 @@ export interface MaintenanceStep {
   status: 'pending' | 'completed' | 'not_applicable';
   photoUrl?: string; // Watermarked image URL
   notes?: string;
+  unitName?: string; // Grouping by unit tab (e.g. 'UNIT 1')
 }
 
 export interface ReportEngineer {
@@ -36,6 +37,11 @@ export interface ReportEngineer {
   status: 'draft' | 'submitted' | 'approved';
   steps: MaintenanceStep[];
   
+  // Custom metadata for PT United Transworld Trading
+  detailUnit?: string;
+  siteProject?: string;
+  maintenanceDate?: string;
+
   // Corrective Maintenance fields
   isCorrective?: boolean;
   damageDescription?: string;

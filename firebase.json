@@ -5,5 +5,37 @@
   },
   "storage": {
     "rules": "firebase/storage.rules"
-  }
+  },
+  "hosting": [
+    {
+      "target": "engineer",
+      "public": "apps/engineer-web/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "target": "hse",
+      "public": "apps/hse-web/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ]
 }

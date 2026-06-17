@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (userProfile: { uid: string; email: string; name: string; role: string }) => void;
@@ -10,6 +11,7 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +57,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       });
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Gagal login. Periksa kembali email dan password Anda.');
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/user-not-found' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/invalid-email' ||
+        (err.message && err.message.includes('auth/invalid-credential'))
+      ) {
+        setError('Email atau password salah.');
+      } else {
+        setError(err.message || 'Gagal login. Periksa kembali email dan password Anda.');
+      }
     } finally {
       setLoading(false);
     }
@@ -71,7 +83,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         {/* Brand Logo & Header */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src="https://pawaengineering.co.id/wp-content/uploads/2022/09/cropped-Logo-Pawa-192x192.png"
+            src="/logo-pawa.png"
             alt="PT PAWA Logo"
             className="w-20 h-20 mb-3 drop-shadow-[0_4px_10px_rgba(16,185,129,0.2)]"
           />
@@ -106,14 +118,24 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
               Kata Sandi
             </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-4 pr-11 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white transition cursor-pointer"
+                title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <button

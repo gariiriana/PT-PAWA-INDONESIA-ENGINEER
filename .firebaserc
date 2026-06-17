@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "pt-pawa-indonesia"
+  },
+  "targets": {
+    "pt-pawa-indonesia": {
+      "hosting": {
+        "engineer": [
+          "pt-pawa-indonesia"
+        ],
+        "hse": [
+          "pt-pawa-indonesia-hse"
+        ]
+      }
+    }
+  }
+}

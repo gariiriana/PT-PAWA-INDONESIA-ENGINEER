@@ -15,5 +15,8 @@
     "build:engineer": "npm run build --workspace=apps/engineer-web",
     "build:hse": "npm run build --workspace=apps/hse-web",
     "build:all": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0"
   }
 }

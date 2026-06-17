@@ -211,12 +211,13 @@ func Auth(next http.Handler) http.Handler {
 		// In a full production implementation, use firebase admin SDK to verify the token:
 		// token, err := firestoreClient.VerifyIDToken(r.Context(), token)
 		// For this boilerplate helper, we accept mock tokens or debug signatures
-		if token == "mock-engineer-token" {
+		switch token {
+		case "mock-engineer-token":
 			ctx := context.WithValue(r.Context(), UserUIDKey, "mock-eng-123")
 			ctx = context.WithValue(ctx, UserRoleKey, "engineer")
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
-		} else if token == "mock-hse-token" {
+		case "mock-hse-token":
 			ctx := context.WithValue(r.Context(), UserUIDKey, "mock-hse-123")
 			ctx = context.WithValue(ctx, UserRoleKey, "hse")
 			next.ServeHTTP(w, r.WithContext(ctx))

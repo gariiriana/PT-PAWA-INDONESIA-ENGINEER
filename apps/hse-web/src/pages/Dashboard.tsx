@@ -60,6 +60,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const [searchYear, setSearchYear] = useState('2026');
   const [searchMonth, setSearchMonth] = useState('All');
 
+  // Custom Alert/Confirm Modal Dialog State
+  const [customDialog, setCustomDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    isConfirm: boolean;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    isConfirm: false,
+  });
+
+  const showCustomAlert = (message: string, title: string = 'Pemberitahuan') => {
+    setCustomDialog({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
+  const showCustomConfirm = (message: string, onConfirm: () => void, title: string = 'Konfirmasi') => {
+    setCustomDialog({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: true,
+      onConfirm: () => {
+        onConfirm();
+        closeCustomDialog();
+      },
+      onCancel: () => {
+        closeCustomDialog();
+      }
+    });
+  };
+
+  const closeCustomDialog = () => {
+    setCustomDialog(prev => ({ ...prev, isOpen: false }));
+  };
+
   // Load safety checklist on init
   useEffect(() => {
     const initialChecklist = SAFETY_CHECKLIST_TEMPLATE.map(item => ({
@@ -129,7 +173,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const handleSubmitHazard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hazardTitle || !description || !correctiveAction || !photoBlob) {
-      return alert('Mohon isi data laporan lengkap dan lampirkan foto sorotan bahaya.');
+      showCustomAlert('Mohon isi data laporan lengkap dan lampirkan foto sorotan bahaya.', 'Peringatan');
+      return;
     }
     setLoading(true);
 
@@ -152,7 +197,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       };
 
       await addDoc(collection(db, 'reports_hse'), newReport);
-      alert('Laporan K3 & Bahaya berhasil disubmit!');
       
       // Reset form
       setHazardTitle('');
@@ -163,7 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setActiveTab('archive');
     } catch (err) {
       console.error(err);
-      alert('Gagal menyimpan laporan bahaya.');
+      showCustomAlert('Gagal menyimpan laporan bahaya.', 'Gagal');
     } finally {
       setLoading(false);
     }
@@ -172,7 +216,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   // Submit Safety Checklist
   const handleSubmitInspection = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inspectionTitle) return alert('Mohon isi judul inspeksi keselamatan.');
+    if (!inspectionTitle) {
+      showCustomAlert('Mohon isi judul inspeksi keselamatan.', 'Peringatan');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -187,7 +234,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       };
 
       await addDoc(collection(db, 'safety_inspections'), newInspection);
-      alert('Checklist Inspeksi Keselamatan berhasil disimpan!');
       setInspectionTitle('');
       setComments('');
       setOverallStatus('Safe');
@@ -199,7 +245,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setActiveTab('archive');
     } catch (err) {
       console.error(err);
-      alert('Gagal menyimpan inspeksi.');
+      showCustomAlert('Gagal menyimpan inspeksi.', 'Gagal');
     } finally {
       setLoading(false);
     }
@@ -338,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg relative">
         <div className="flex items-center gap-3">
           <img
-            src="https://pawaengineering.co.id/wp-content/uploads/2022/09/cropped-Logo-Pawa-192x192.png"
+            src="/logo-pawa.png"
             alt="Logo"
             className="w-10 h-10 drop-shadow-[0_2px_5px_rgba(16,185,129,0.3)]"
           />
@@ -715,6 +761,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCaptureResult}
       />
+
+      {/* Custom Alert/Confirm Modal Dialog */}
+      {customDialog.isOpen && (
+        <div className="fixed inset-0 bg-[#070b13]/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+              <h3 className="text-xs font-bold tracking-tight text-white uppercase font-mono">{customDialog.title}</h3>
+              <button 
+                onClick={closeCustomDialog}
+                type="button"
+                className="text-slate-400 hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{customDialog.message}</p>
+            </div>
+            {/* Actions */}
+            <div className="px-6 py-4 bg-slate-950/40 border-t border-slate-800 flex justify-end gap-2.5">
+              {customDialog.isConfirm ? (
+                <>
+                  <button
+                    onClick={customDialog.onCancel}
+                    type="button"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={customDialog.onConfirm}
+                    type="button"
+                    className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+                  >
+                    Ya, Hapus
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={closeCustomDialog}
+                  type="button"
+                  className="px-5 py-2 bg-[#828200] hover:bg-[#999900] text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  OK
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer matching Woodmart Official Site */}
       <footer className="bg-black text-slate-500 border-t border-slate-900 py-6 text-center text-xs space-y-2">
