@@ -23,10 +23,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = imageSrc;
     img.onload = () => {
       setImageObj(img);
     };
+    img.src = imageSrc;
   }, [imageSrc]);
 
   // Render original image on canvas when image loads

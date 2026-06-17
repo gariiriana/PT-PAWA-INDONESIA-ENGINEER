@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RotateCcw, Check, Sparkles, MapPin, X, RefreshCw, Zap, Plus, Minus, Download } from 'lucide-react';
-import { getGPSData, applyWatermark, WatermarkData } from '../utils/camera';
+import { getGPSData, applyWatermark, WatermarkData, drawWatermarkOnCanvas } from '../utils/camera';
 import './CameraModal.css';
 
 interface CameraModalProps {
@@ -8,6 +8,7 @@ interface CameraModalProps {
   onClose: () => void;
   onCapture: (imageBlob: Blob, dataUrl: string) => void;
   detailUnit?: string;
+  brandTitle?: string;
 }
 
 export const CameraModal: React.FC<CameraModalProps> = ({
@@ -15,6 +16,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   onClose,
   onCapture,
   detailUnit,
+  brandTitle,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -224,18 +226,32 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
 
-      const rawDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      // Do NOT block camera shutter capture waiting for GPS fetch. Use background-loaded gpsData or fallback.
+      const activeGps = gpsData || {
+        timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB',
+        address: 'Mengambil alamat lokasi...'
+      };
 
-      // Fetch fresh GPS data if not fetched yet
-      let activeGps = gpsData;
-      if (!activeGps) {
-        activeGps = await getGPSData();
-      }
-
-      // Apply Burn-on-Apply Watermark
-      const watermarkedBlob = await applyWatermark(rawDataUrl, {
+      // Apply Burn-on-Apply Watermark directly onto the captured canvas!
+      drawWatermarkOnCanvas(canvas, {
         ...activeGps,
-        detailUnit
+        detailUnit,
+        brandTitle,
+      });
+
+      // Output compressed blob
+      const watermarkedBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas conversion failed'));
+            }
+          },
+          'image/jpeg',
+          0.75 // 75% quality compression
+        );
       });
       const watermarkedDataUrl = URL.createObjectURL(watermarkedBlob);
 

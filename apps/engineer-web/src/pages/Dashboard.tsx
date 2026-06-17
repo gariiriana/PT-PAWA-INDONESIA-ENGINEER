@@ -22,6 +22,7 @@ interface DashboardProps {
 interface CardData {
   id: string;
   photoUrl?: string; // Firestore attachment ID
+  localUrl?: string; // Local Object URL or Data URL (for instant rendering)
   description: string;
 }
 
@@ -246,10 +247,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         if (!newCards[j].photoUrl) {
           const file = files[fileIndex];
           const compressedBlob = await compressImageFile(file);
+          const localUrl = URL.createObjectURL(compressedBlob);
           const attachmentId = await uploadFileToFirestore(db, compressedBlob, file.name);
           newCards[j] = {
             ...newCards[j],
-            photoUrl: attachmentId
+            photoUrl: attachmentId,
+            localUrl
           };
           fileIndex++;
         }
@@ -259,10 +262,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       while (fileIndex < files.length) {
         const file = files[fileIndex];
         const compressedBlob = await compressImageFile(file);
+        const localUrl = URL.createObjectURL(compressedBlob);
         const attachmentId = await uploadFileToFirestore(db, compressedBlob, file.name);
         newCards.push({
           id: Math.random().toString(),
           photoUrl: attachmentId,
+          localUrl,
           description: '',
         });
         fileIndex++;
@@ -282,10 +287,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     setLoading(true);
     try {
       const compressedBlob = await compressImageFile(file);
+      const localUrl = URL.createObjectURL(compressedBlob);
+      
+      // Set localUrl instantly to skip loading text
+      setCards(prev => prev.map((c) => {
+        if (c.id === cardId) {
+          return { ...c, localUrl };
+        }
+        return c;
+      }));
+
       const attachmentId = await uploadFileToFirestore(db, compressedBlob, file.name);
       setCards(prev => prev.map((c) => {
         if (c.id === cardId) {
-          return { ...c, photoUrl: attachmentId };
+          return { ...c, photoUrl: attachmentId, localUrl };
         }
         return c;
       }));
@@ -307,10 +322,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setLoading(true);
       try {
         const { cardId } = cameraTargetCard;
+        // Set localUrl instantly to skip card-level loading text
+        setCards(prev => prev.map((c) => {
+          if (c.id === cardId) {
+            return { ...c, localUrl: dataUrl };
+          }
+          return c;
+        }));
+
         const attachmentId = await uploadFileToFirestore(db, blob, `captured_${Date.now()}.jpg`);
         setCards(prev => prev.map((c) => {
           if (c.id === cardId) {
-            return { ...c, photoUrl: attachmentId };
+            return { ...c, photoUrl: attachmentId, localUrl: dataUrl };
           }
           return c;
         }));
@@ -325,13 +348,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   };
 
   const handleDeleteCard = (cardId: string) => {
+    // Clean up local URL if it exists
+    const card = cards.find(c => c.id === cardId);
+    if (card?.localUrl) {
+      URL.revokeObjectURL(card.localUrl);
+    }
     setCards(prev => prev.filter((c) => c.id !== cardId));
   };
 
   const handleRemovePhoto = (cardId: string) => {
     setCards(prev => prev.map((c) => {
       if (c.id === cardId) {
-        return { ...c, photoUrl: undefined };
+        if (c.localUrl) {
+          URL.revokeObjectURL(c.localUrl);
+        }
+        return { ...c, photoUrl: undefined, localUrl: undefined };
       }
       return c;
     }));
@@ -449,6 +480,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   };
 
   const resetForm = () => {
+    // Revoke any localUrls to prevent memory leaks
+    cards.forEach((c) => {
+      if (c.localUrl) {
+        URL.revokeObjectURL(c.localUrl);
+      }
+    });
     setReportId(null);
     setReportTitle('');
     setDetailUnit('');
@@ -1004,14 +1041,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
 
                         {/* Image Placeholder or Camera/Upload Trigger */}
                         <div className="w-full aspect-[4/3] bg-slate-950/80 flex items-center justify-center relative overflow-hidden group">
-                          {card.photoUrl ? (
+                          {card.localUrl || card.photoUrl ? (
                             <div className="w-full h-full relative">
-                              <FirestoreImage
-                                db={db}
-                                attachmentId={card.photoUrl}
-                                alt={`Inspeksi #${idx + 1}`}
-                                className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
-                              />
+                              {card.localUrl ? (
+                                <img
+                                  src={card.localUrl}
+                                  alt={`Inspeksi #${idx + 1}`}
+                                  className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                              ) : (
+                                <FirestoreImage
+                                  db={db}
+                                  attachmentId={card.photoUrl!}
+                                  alt={`Inspeksi #${idx + 1}`}
+                                  className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                              )}
                               <button
                                 type="button"
                                 title="Hapus Foto"
@@ -1307,6 +1352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCaptureResult}
         detailUnit={detailUnit}
+        brandTitle="PT PAWA INDONESIA ENGINEER"
       />
 
       {/* ----------------- PREVIEW MODAL ----------------- */}

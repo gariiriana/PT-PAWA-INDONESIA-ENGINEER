@@ -760,6 +760,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCaptureResult}
+        brandTitle="PT PAWA INDONESIA HSE"
       />
 
       {/* Custom Alert/Confirm Modal Dialog */}
