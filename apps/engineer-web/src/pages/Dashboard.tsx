@@ -136,6 +136,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [cropCardId, setCropCardId] = useState<string | null>(null);
 
+  // Photo Preview State
+  const [previewPhotoSrc, setPreviewPhotoSrc] = useState<string | null>(null);
+
   // Search & Filter state for Archive
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -508,6 +511,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePreviewCardPhoto = async (card: CardData) => {
+    let url = card.localUrl;
+    let isTempUrl = false;
+
+    if (!url && card.photoUrl) {
+      setLoading(true);
+      try {
+        const result = await downloadFileFromFirestore(db, card.photoUrl);
+        url = result.dataUrl;
+        isTempUrl = true;
+      } catch (err) {
+        console.error('Fetch preview error:', err);
+        showCustomAlert('Gagal memuat preview foto.', 'Error');
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (url) {
+      setPreviewPhotoSrc(url);
+    }
+  };
+
+  const handleClosePhotoPreview = () => {
+    if (previewPhotoSrc && !cards.some(c => c.localUrl === previewPhotoSrc)) {
+      URL.revokeObjectURL(previewPhotoSrc);
+    }
+    setPreviewPhotoSrc(null);
   };
 
   const updateCardDescription = (cardId: string, value: string) => {
@@ -1203,12 +1235,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                 />
                               )}
                               {/* Centered Actions Overlay (always visible) */}
-                              <div className="absolute inset-0 bg-black/35 flex items-center justify-center gap-3 transition-opacity duration-200">
+                              <div 
+                                onClick={() => handlePreviewCardPhoto(card)}
+                                className="absolute inset-0 bg-black/35 flex items-center justify-center gap-3 transition-opacity duration-200 cursor-zoom-in"
+                              >
                                 {/* Download */}
                                 <button
                                   type="button"
                                   title="Unduh Foto"
-                                  onClick={() => handleDownloadCardPhoto(card)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadCardPhoto(card);
+                                  }}
                                   className="w-11 h-11 rounded-xl bg-[#828200] border border-[#999900]/25 text-white flex items-center justify-center hover:bg-[#999900] transition-all active:scale-90 cursor-pointer shadow-lg"
                                 >
                                   <Download size={18} />
@@ -1218,7 +1256,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                 <button
                                   type="button"
                                   title="Potong Foto"
-                                  onClick={() => handleCropCardPhoto(card)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCropCardPhoto(card);
+                                  }}
                                   className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700/60 text-white flex items-center justify-center hover:bg-slate-750 transition-all active:scale-90 cursor-pointer shadow-lg"
                                 >
                                   <Scissors size={18} />
@@ -1228,7 +1269,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                 <button
                                   type="button"
                                   title="Hapus Foto"
-                                  onClick={() => handleRemovePhoto(card.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemovePhoto(card.id);
+                                  }}
                                   className="w-11 h-11 rounded-xl bg-red-600 border border-red-500/60 text-white flex items-center justify-center hover:bg-red-500 transition-all active:scale-90 cursor-pointer shadow-lg"
                                 >
                                   <Trash2 size={18} />
@@ -1532,6 +1576,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
           onSave={handleSaveCrop}
           onCancel={handleCloseCropModal}
         />
+      )}
+
+      {/* Fullscreen Photo Preview Modal */}
+      {previewPhotoSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          {/* Close Area */}
+          <div className="absolute inset-0 cursor-zoom-out" onClick={handleClosePhotoPreview} />
+          
+          {/* Modal Content */}
+          <div className="relative max-w-3xl max-h-[85vh] z-10 flex flex-col items-center gap-4 bg-[#0b0f19] border border-slate-800/60 p-4 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <img
+              src={previewPhotoSrc}
+              alt="Preview Dokumentasi"
+              className="max-h-[70vh] max-w-full object-contain rounded-2xl shadow-xl"
+            />
+            
+            {/* Controls */}
+            <div className="flex gap-4">
+              {/* Download */}
+              <button
+                onClick={() => {
+                  const a = document.createElement('a');
+                  a.href = previewPhotoSrc;
+                  a.download = `preview_${Date.now()}.jpg`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+                className="px-4 py-2 bg-[#828200] hover:bg-[#999900] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow"
+              >
+                <Download size={14} /> Unduh Foto
+              </button>
+              
+              {/* Close */}
+              <button
+                onClick={handleClosePhotoPreview}
+                className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 hover:text-white text-slate-400 text-xs font-bold rounded-xl transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ----------------- PREVIEW MODAL ----------------- */}
