@@ -762,7 +762,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         URL.revokeObjectURL(url);
       });
       
-      docPdf.save(`Report_Maintenance_${report.title.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+      const cleanTitle = report.title.trim().replace(/\s+/g, '_');
+      const cleanUnit = report.detailUnit ? report.detailUnit.trim().replace(/\s+/g, '_') : '';
+      const filename = cleanUnit ? `${cleanTitle}_${cleanUnit}.pdf` : `${cleanTitle}.pdf`;
+      docPdf.save(filename);
     } catch (err) {
       console.error('PDF export failed:', err);
       showCustomAlert('Gagal mengekspor laporan ke PDF.', 'Ekspor Gagal');
