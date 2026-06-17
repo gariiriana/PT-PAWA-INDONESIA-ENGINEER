@@ -1,19 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const BACKGROUND_IMAGES = [
+  'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only1.webp',
+  'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only2.webp',
+  'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only3-1.png',
+  'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only4.webp',
+  'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only5.webp'
+];
 
 interface LoginProps {
   onLoginSuccess: (userProfile: { uid: string; email: string; name: string; role: string }) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+  const [bgIndex, setBgIndex] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Preload background images
+    BACKGROUND_IMAGES.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    const timer = setInterval(() => {
+      setBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,12 +97,30 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#070b13] p-4 relative overflow-hidden">
-      {/* Decorative colored glow background */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#828200]/10 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Dynamic Background Slideshow */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={bgIndex}
+            initial={{ opacity: 0, scale: 1 }}
+            animate={{ opacity: 1, scale: 1.05 }}
+            exit={{ opacity: 0 }}
+            transition={{ 
+              opacity: { duration: 2, ease: 'easeInOut' },
+              scale: { duration: 6, ease: 'linear' }
+            }}
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${BACKGROUND_IMAGES[bgIndex]})` }}
+          />
+        </AnimatePresence>
+      </div>
 
-      <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative border border-slate-800/80">
+      {/* Decorative colored glow background */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#828200]/10 rounded-full blur-[100px] pointer-events-none z-10"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none z-10"></div>
+
+      <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative border border-slate-800/80 z-20">
         {/* Brand Logo & Header */}
         <div className="flex flex-col items-center mb-8">
           <img
@@ -87,7 +128,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             alt="PT PAWA Logo"
             className="w-20 h-20 mb-3 drop-shadow-[0_4px_10px_rgba(130,130,0,0.3)]"
           />
-          <h2 className="text-2xl font-bold tracking-tight text-white">PORTAL ENGINEER</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-white">PORTAL REPORT ENGINEER</h2>
           <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-mono">
             PT PAWA INDONESIA ENGINEERING
           </p>

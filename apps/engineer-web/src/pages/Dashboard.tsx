@@ -148,6 +148,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     title: string;
     message: string;
     isConfirm: boolean;
+    confirmText?: string;
+    cancelText?: string;
     onConfirm?: () => void;
     onCancel?: () => void;
   }>({
@@ -166,12 +168,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     });
   };
 
-  const showCustomConfirm = (message: string, onConfirm: () => void, title: string = 'Konfirmasi') => {
+  const showCustomConfirm = (
+    message: string,
+    onConfirm: () => void,
+    title: string = 'Konfirmasi',
+    confirmText: string = 'Ya, Hapus',
+    cancelText: string = 'Batal'
+  ) => {
     setCustomDialog({
       isOpen: true,
       title,
       message,
       isConfirm: true,
+      confirmText,
+      cancelText,
       onConfirm: () => {
         onConfirm();
         closeCustomDialog();
@@ -217,9 +227,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    onLogout();
+  const handleLogout = () => {
+    showCustomConfirm(
+      'Apakah Anda yakin ingin keluar dari aplikasi?',
+      async () => {
+        await signOut(auth);
+        onLogout();
+      },
+      'Konfirmasi Keluar',
+      'Ya, Keluar',
+      'Batal'
+    );
   };
 
   // Manage Documentation Cards
@@ -1511,14 +1529,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                     type="button"
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
                   >
-                    Batal
+                    {customDialog.cancelText || 'Batal'}
                   </button>
                   <button
                     onClick={customDialog.onConfirm}
                     type="button"
                     className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
                   >
-                    Ya, Hapus
+                    {customDialog.confirmText || 'Ya, Hapus'}
                   </button>
                 </>
               ) : (
