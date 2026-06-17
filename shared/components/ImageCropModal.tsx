@@ -24,6 +24,8 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const maskRef = useRef<HTMLDivElement | null>(null);
+  const cropFrameRef = useRef<HTMLDivElement | null>(null);
 
   // Zoom & Rotation States
   const [zoom, setZoom] = useState<number>(1.0);
@@ -131,6 +133,36 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       setImageLayout({ dispW, dispH, naturalW, naturalH });
     }
   }, [containerSize]);
+
+  // Dynamic ref-based style application to clear CSS inline style warnings
+  useEffect(() => {
+    const img = imageRef.current;
+    if (!img) return;
+    img.style.width = imageLayout.dispW > 0 ? `${imageLayout.dispW}px` : 'auto';
+    img.style.height = imageLayout.dispH > 0 ? `${imageLayout.dispH}px` : 'auto';
+    img.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
+    img.style.transformOrigin = 'center';
+    img.style.transition = dragAction ? 'none' : 'transform 0.1s ease-out';
+  }, [imageLayout, zoom, rotation, dragAction]);
+
+  useEffect(() => {
+    const mask = maskRef.current;
+    if (mask) {
+      mask.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.65)';
+      mask.style.left = `${crop.x}px`;
+      mask.style.top = `${crop.y}px`;
+      mask.style.width = `${crop.width}px`;
+      mask.style.height = `${crop.height}px`;
+    }
+
+    const frame = cropFrameRef.current;
+    if (frame) {
+      frame.style.left = `${crop.x}px`;
+      frame.style.top = `${crop.y}px`;
+      frame.style.width = `${crop.width}px`;
+      frame.style.height = `${crop.height}px`;
+    }
+  }, [crop]);
 
   // Handle Drag/Resize Interaction MouseDown / TouchStart
   const handleStartDrag = (e: React.MouseEvent | React.TouchEvent, action: string) => {
@@ -441,36 +473,18 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               src={imageSrc}
               alt="Source Crop"
               onLoad={handleImageLoad}
-              style={{
-                width: imageLayout.dispW > 0 ? `${imageLayout.dispW}px` : 'auto',
-                height: imageLayout.dispH > 0 ? `${imageLayout.dispH}px` : 'auto',
-                transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                transformOrigin: 'center',
-                transition: dragAction ? 'none' : 'transform 0.1s ease-out',
-              }}
               className="object-contain max-w-full max-h-full pointer-events-none"
             />
 
             {/* Dark Mask Backdrop (darkens areas outside the crop selection box) */}
             <div
+              ref={maskRef}
               className="absolute inset-0 pointer-events-none"
-              style={{
-                boxShadow: `0 0 0 9999px rgba(0, 0, 0, 0.65)`,
-                left: `${crop.x}px`,
-                top: `${crop.y}px`,
-                width: `${crop.width}px`,
-                height: `${crop.height}px`,
-              }}
             />
 
             {/* Interactive Crop Frame Overlay */}
             <div
-              style={{
-                left: `${crop.x}px`,
-                top: `${crop.y}px`,
-                width: `${crop.width}px`,
-                height: `${crop.height}px`,
-              }}
+              ref={cropFrameRef}
               className="absolute border border-dashed border-[#999900] cursor-move flex items-center justify-center"
               onMouseDown={(e) => handleStartDrag(e, 'move')}
               onTouchStart={(e) => handleStartDrag(e, 'move')}
