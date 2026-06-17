@@ -167,6 +167,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   // Handle Drag/Resize Interaction MouseDown / TouchStart
   const handleStartDrag = (e: React.MouseEvent | React.TouchEvent, action: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
@@ -489,27 +490,35 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               onMouseDown={(e) => handleStartDrag(e, 'move')}
               onTouchStart={(e) => handleStartDrag(e, 'move')}
             >
-              {/* Corner brackets */}
+              {/* Corner brackets with larger touch targets */}
               <div
                 onMouseDown={(e) => handleStartDrag(e, 'resize-tl')}
                 onTouchStart={(e) => handleStartDrag(e, 'resize-tl')}
-                className="absolute -top-1 -left-1 w-4 h-4 border-t-3 border-l-3 border-[#999900] cursor-nwse-resize"
-              />
+                className="absolute -top-2 -left-2 w-8 h-8 flex items-start justify-start cursor-nwse-resize select-none"
+              >
+                <div className="w-4 h-4 border-t-3 border-l-3 border-[#999900]" />
+              </div>
               <div
                 onMouseDown={(e) => handleStartDrag(e, 'resize-tr')}
                 onTouchStart={(e) => handleStartDrag(e, 'resize-tr')}
-                className="absolute -top-1 -right-1 w-4 h-4 border-t-3 border-r-3 border-[#999900] cursor-nesw-resize"
-              />
+                className="absolute -top-2 -right-2 w-8 h-8 flex items-start justify-end cursor-nesw-resize select-none"
+              >
+                <div className="w-4 h-4 border-t-3 border-r-3 border-[#999900]" />
+              </div>
               <div
                 onMouseDown={(e) => handleStartDrag(e, 'resize-bl')}
                 onTouchStart={(e) => handleStartDrag(e, 'resize-bl')}
-                className="absolute -bottom-1 -left-1 w-4 h-4 border-b-3 border-l-3 border-[#999900] cursor-nesw-resize"
-              />
+                className="absolute -bottom-2 -left-2 w-8 h-8 flex items-end justify-start cursor-nesw-resize select-none"
+              >
+                <div className="w-4 h-4 border-b-3 border-l-3 border-[#999900]" />
+              </div>
               <div
                 onMouseDown={(e) => handleStartDrag(e, 'resize-br')}
                 onTouchStart={(e) => handleStartDrag(e, 'resize-br')}
-                className="absolute -bottom-1 -right-1 w-4 h-4 border-b-3 border-r-3 border-[#999900] cursor-nwse-resize"
-              />
+                className="absolute -bottom-2 -right-2 w-8 h-8 flex items-end justify-end cursor-nwse-resize select-none"
+              >
+                <div className="w-4 h-4 border-b-3 border-r-3 border-[#999900]" />
+              </div>
             </div>
           </div>
 
