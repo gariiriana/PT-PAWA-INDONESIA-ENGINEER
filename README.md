@@ -17,15 +17,17 @@
 ## 🌟 Key Features
 
 ### 🛠️ Portal Report Engineer
-*   **Preventive & Corrective Maintenance Logging:** Structured creation of maintenance workcards based on templated requirements.
-*   **Client-Side Report Compilers:** Instant on-demand generation of corporate-branded A4 PDF files and structured Excel spreadsheets directly in the browser.
-*   **Smart Camera Integration:** Built-in camera interface utilizing device cameras with auto-timestamping and coordinate metadata tags.
+
+* **Preventive & Corrective Maintenance Logging:** Structured creation of maintenance workcards based on templated requirements.
+* **Client-Side Report Compilers:** Instant on-demand generation of corporate-branded A4 PDF files and structured Excel spreadsheets directly in the browser.
+* **Smart Camera Integration:** Built-in camera interface utilizing device cameras with auto-timestamping and coordinate metadata tags.
 
 ### 🛡️ Portal HSE & K3 (Safety)
-*   **Unsafe Condition & Action Reports:** Quick submission of hazard findings with visual annotations and markups.
-*   **GPS Geo-tagging:** Automatic address and coordinate resolution for precise hazard positioning.
-*   **Safety Inspections Checklist:** Digital audit checklists covering PPE, Fire Safety, Electrical Hazard, and Housekeeping rules.
-*   **HSE Findings Archive:** Centralized registry with advanced month/year filters and mass export tools (.xlsx).
+
+* Unsafe Condition & Action Reports: Quick submission of hazard findings with visual annotations and markups.
+* GPS Geo-tagging: Automatic address and coordinate resolution for precise hazard positioning.
+* Safety Inspections Checklist: Digital audit checklists covering PPE, Fire Safety, Electrical Hazard, and Housekeeping rules.
+* HSE Findings Archive: Centralized registry with advanced month/year filters and mass export tools (.xlsx).
 
 ---
 
@@ -33,7 +35,7 @@
 
 This repository is built as an npm monorepo separating frontend portals while maintaining shared modules:
 
-```
+```text
 PT-PAWA-INDONESIA-ENGINEER/
 ├── apps/
 │   ├── engineer-web/               # Engineer portal (React SPA on Port 3000)
@@ -52,15 +54,17 @@ PT-PAWA-INDONESIA-ENGINEER/
 ## 🎨 Premium UI/UX Design System
 
 The application features a sleek corporate appearance designed to impress at first glance:
-*   **Woodmart Corporate Palette:** Dominated by a deep obsidian background (`#070b13`) and rich gold-olive accent colors (`#828200`).
-*   **Glassmorphism UI Panels:** Backdrop-blur filters combined with subtle thin border lines for a modern floating card aesthetic.
-*   **Aesthetic Background slideshow:** Housed in the login pages, utilizing official PT Pawa background assets with continuous smooth scaling (Ken Burns zoom) and Framer Motion cross-fade transitions.
+
+* **Woodmart Corporate Palette:** Dominated by a deep obsidian background (`#070b13`) and rich gold-olive accent colors (`#828200`).
+* **Glassmorphism UI Panels:** Backdrop-blur filters combined with subtle thin border lines for a modern floating card aesthetic.
+* **Aesthetic Background slideshow:** Housed in the login pages, utilizing official PT Pawa background assets with continuous smooth scaling (Ken Burns zoom) and Framer Motion cross-fade transitions.
 
 ---
 
 ## 🚦 Getting Started
 
 ### 1. Install Dependencies
+
 Run npm install at the root folder of the monorepo workspace to resolve all shared workspace links automatically:
 
 ```bash
@@ -68,6 +72,7 @@ npm install
 ```
 
 ### 2. Configure Environment variables
+
 Create a `.env.local` inside both `apps/engineer-web/` and `apps/hse-web/` folders:
 
 ```env
@@ -80,6 +85,7 @@ VITE_FIREBASE_APP_ID=your_app_id
 ```
 
 ### 3. Run Development Servers
+
 Start both workspaces concurrently with:
 
 ```bash
@@ -116,8 +122,9 @@ Strict security policies are enforced on the Firebase Firestore backend via secu
 ## 🌐 Live Deployment
 
 The system is deployed on Firebase Cloud Infrastructure:
-*   **Engineer System:** [https://pt-pawa-indonesia.web.app](https://pt-pawa-indonesia.web.app)
-*   **HSE & K3 System:** [https://pt-pawa-indonesia-hse.web.app](https://pt-pawa-indonesia-hse.web.app)
+
+* **Engineer System:** [https://pt-pawa-indonesia.web.app](https://pt-pawa-indonesia.web.app)
+* **HSE & K3 System:** [https://pt-pawa-indonesia-hse.web.app](https://pt-pawa-indonesia-hse.web.app)
 
 ---
 
