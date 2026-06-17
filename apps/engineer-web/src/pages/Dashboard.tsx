@@ -1202,8 +1202,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                   className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                                 />
                               )}
-                              {/* Centered Actions Overlay (visible on hover) */}
-                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              {/* Centered Actions Overlay (always visible) */}
+                              <div className="absolute inset-0 bg-black/35 flex items-center justify-center gap-3 transition-opacity duration-200">
                                 {/* Download */}
                                 <button
                                   type="button"
