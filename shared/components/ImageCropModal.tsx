@@ -200,64 +200,41 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         newCrop.x = Math.max(0, Math.min(contW - start.cropW, start.cropX + deltaX));
         newCrop.y = Math.max(0, Math.min(contH - start.cropH, start.cropY + deltaY));
       } else {
-        // Enforce 4:3 Aspect Ratio for Resizing
-        const aspect = 4 / 3;
-        let diffW = deltaX;
+        const minSize = 40;
 
         if (dragAction === 'resize-br') {
           // Bottom-Right
-          let newW = Math.max(50, start.cropW + diffW);
-          let newH = newW / aspect;
-
-          // Check limits
-          if (start.cropX + newW > contW) {
-            newW = contW - start.cropX;
-            newH = newW / aspect;
-          }
-          if (start.cropY + newH > contH) {
-            newH = contH - start.cropY;
-            newW = newH * aspect;
-          }
-
+          const newW = Math.max(minSize, Math.min(contW - start.cropX, start.cropW + deltaX));
+          const newH = Math.max(minSize, Math.min(contH - start.cropY, start.cropH + deltaY));
           newCrop.width = newW;
           newCrop.height = newH;
         } else if (dragAction === 'resize-bl') {
           // Bottom-Left
-          let newW = Math.max(50, start.cropW - diffW);
-          let newH = newW / aspect;
-
+          let newW = start.cropW - deltaX;
+          if (newW < minSize) {
+            newW = minSize;
+          }
           let newX = start.cropX + (start.cropW - newW);
-
           if (newX < 0) {
             newX = 0;
             newW = start.cropX + start.cropW;
-            newH = newW / aspect;
           }
-          if (start.cropY + newH > contH) {
-            newH = contH - start.cropY;
-            newW = newH * aspect;
-            newX = start.cropX + (start.cropW - newW);
-          }
+          const newH = Math.max(minSize, Math.min(contH - start.cropY, start.cropH + deltaY));
 
           newCrop.x = newX;
           newCrop.width = newW;
           newCrop.height = newH;
         } else if (dragAction === 'resize-tr') {
           // Top-Right
-          let newW = Math.max(50, start.cropW + diffW);
-          let newH = newW / aspect;
-
+          const newW = Math.max(minSize, Math.min(contW - start.cropX, start.cropW + deltaX));
+          let newH = start.cropH - deltaY;
+          if (newH < minSize) {
+            newH = minSize;
+          }
           let newY = start.cropY + (start.cropH - newH);
-
           if (newY < 0) {
             newY = 0;
             newH = start.cropY + start.cropH;
-            newW = newH * aspect;
-          }
-          if (start.cropX + newW > contW) {
-            newW = contW - start.cropX;
-            newH = newW / aspect;
-            newY = start.cropY + (start.cropH - newH);
           }
 
           newCrop.y = newY;
@@ -265,23 +242,24 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
           newCrop.height = newH;
         } else if (dragAction === 'resize-tl') {
           // Top-Left
-          let newW = Math.max(50, start.cropW - diffW);
-          let newH = newW / aspect;
-
+          let newW = start.cropW - deltaX;
+          if (newW < minSize) {
+            newW = minSize;
+          }
           let newX = start.cropX + (start.cropW - newW);
-          let newY = start.cropY + (start.cropH - newH);
-
           if (newX < 0) {
             newX = 0;
             newW = start.cropX + start.cropW;
-            newH = newW / aspect;
-            newY = start.cropY + (start.cropH - newH);
           }
+
+          let newH = start.cropH - deltaY;
+          if (newH < minSize) {
+            newH = minSize;
+          }
+          let newY = start.cropY + (start.cropH - newH);
           if (newY < 0) {
             newY = 0;
             newH = start.cropY + start.cropH;
-            newW = newH * aspect;
-            newX = start.cropX + (start.cropW - newW);
           }
 
           newCrop.x = newX;
