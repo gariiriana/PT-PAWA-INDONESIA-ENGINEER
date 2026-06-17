@@ -361,14 +361,26 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         {/* Viewfinder / Video Feed Area with exact overlay guides */}
         <div className="relative flex-1 min-h-[320px] max-h-[55vh] bg-black flex items-center justify-center overflow-hidden">
           
-          {/* Active View: Live Video or Captured Image Preview */}
-          {previewDataUrl ? (
+          {/* Active View: Live Video Feed (Always mounted to prevent React DOM reconciliation errors on HP) */}
+          <video
+            ref={videoRefCallback}
+            autoPlay
+            playsInline
+            style={{ display: (!previewDataUrl && !errorMsg) ? 'block' : 'none' }}
+            className="w-full h-full object-cover transition-transform duration-200 ease-out"
+          />
+
+          {/* Captured Image Preview */}
+          {previewDataUrl && (
             <img
               src={previewDataUrl}
               alt="Hasil Tangkapan Kamera"
               className="w-full h-full object-contain"
             />
-          ) : errorMsg ? (
+          )}
+
+          {/* Error Message Screen */}
+          {errorMsg && (
             <div className="text-center p-6 z-20">
               <p className="text-red-400 font-semibold mb-3 text-sm">{errorMsg}</p>
               <button
@@ -378,13 +390,6 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 Coba Lagi
               </button>
             </div>
-          ) : (
-            <video
-              ref={videoRefCallback}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover transition-transform duration-200 ease-out"
-            />
           )}
 
           {/* Loading Overlays */}
@@ -397,9 +402,9 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             </div>
           )}
 
-          {/* OVERLAYS ON CAMERA STREAM (Only when stream is active) */}
+          {/* OVERLAYS ON CAMERA STREAM (Only when stream is active, wrapped in a single stable div to prevent browser removeChild crash) */}
           {!previewDataUrl && !errorMsg && (
-            <>
+            <div key="camera-controls-overlay-container">
               {/* Top-Right Label: ✓ TERVERIFIKASI */}
               <div className="camera-verified-badge bg-emerald-950/70 backdrop-blur-md border border-emerald-500/35 px-3 py-1 rounded-full text-emerald-400 font-extrabold text-[10px] tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1"></span>
@@ -512,7 +517,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
