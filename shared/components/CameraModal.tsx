@@ -208,9 +208,25 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setLoading(true);
     try {
       const video = videoRef.current;
+      
+      // Calculate target scaled dimensions (limit max dimension to 1280px to compress memory and keep watermark size consistent)
+      const maxDim = 1280;
+      let targetWidth = video.videoWidth;
+      let targetHeight = video.videoHeight;
+      
+      if (targetWidth > maxDim || targetHeight > maxDim) {
+        if (targetWidth > targetHeight) {
+          targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
+          targetWidth = maxDim;
+        } else {
+          targetWidth = Math.round((targetWidth * maxDim) / targetHeight);
+          targetHeight = maxDim;
+        }
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Context not available');
@@ -221,9 +237,9 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         const cropHeight = video.videoHeight / zoomVal;
         const startX = (video.videoWidth - cropWidth) / 2;
         const startY = (video.videoHeight - cropHeight) / 2;
-        ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
       } else {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, targetWidth, targetHeight);
       }
 
       // Do NOT block camera shutter capture waiting for GPS fetch. Use background-loaded gpsData or fallback.
