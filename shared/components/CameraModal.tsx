@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RotateCcw, Check, Sparkles, MapPin, X, RefreshCw, Zap, Plus, Minus, Download } from 'lucide-react';
-import { getGPSData, applyWatermark, WatermarkData, drawWatermarkOnCanvas } from '../utils/camera';
+import { getGPSData, applyWatermark, WatermarkData } from '../utils/camera';
 import './CameraModal.css';
 
 interface CameraModalProps {
@@ -39,16 +39,33 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   const [torchOn, setTorchOn] = useState(false);
   const [zoomVal, setZoomVal] = useState<number>(1.0);
 
+  // Helper to find device ID by facing mode label
+  const getDeviceByFacing = (devicesList: MediaDeviceInfo[], mode: 'user' | 'environment'): string | null => {
+    const searchTerms = mode === 'environment'
+      ? ['back', 'rear', 'environment', 'belakang', 'main', 'outer', 'sebelah luar']
+      : ['front', 'user', 'depan', 'selfie', 'inner', 'sebelah dalam'];
+
+    for (const d of devicesList) {
+      const label = (d.label || '').toLowerCase();
+      if (searchTerms.some(term => label.includes(term))) {
+        return d.deviceId;
+      }
+    }
+    return null;
+  };
+
   // Callback ref to dynamically set scale style on mount/update and avoid JSX inline style warning
   const videoRefCallback = React.useCallback(
     (node: HTMLVideoElement | null) => {
       videoRef.current = node;
       if (node) {
-        node.style.transform = `scale(${zoomVal})`;
+        const isUser = facingMode === 'user';
+        // Mirror horizontally if using user/front camera
+        node.style.transform = `scale(${isUser ? -zoomVal : zoomVal}, ${zoomVal})`;
         node.style.transformOrigin = 'center';
       }
     },
-    [zoomVal]
+    [zoomVal, facingMode]
   );
 
   // Initialize camera stream and search devices
@@ -79,17 +96,21 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       stopCamera();
 
       // Enumerate available video inputs first
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      let videoInputs = devices.filter((d) => d.kind === 'videoinput');
       setVideoDevices(videoInputs);
 
-      // Select proper deviceId if requested, else match state
-      const targetDeviceId = deviceId || activeDeviceId;
+      // Select proper deviceId: if specified, use it.
+      // Otherwise, try to find a device that matches the current facingMode.
+      let targetDeviceId = deviceId || activeDeviceId;
+      if (!targetDeviceId && videoInputs.length > 0) {
+        targetDeviceId = getDeviceByFacing(videoInputs, facingMode) || null;
+      }
       
       const constraints: MediaStreamConstraints = {
         video: targetDeviceId
-          ? { deviceId: { exact: targetDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          ? { deviceId: { ideal: targetDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       };
 
@@ -111,9 +132,31 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           });
         }
       }
+      
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+      }
+
+      // After successful stream load, re-enumerate devices to get labels if they were empty
+      const freshDevices = await navigator.mediaDevices.enumerateDevices();
+      const freshVideoInputs = freshDevices.filter((d) => d.kind === 'videoinput');
+      setVideoDevices(freshVideoInputs);
+
+      // Update facingMode state based on the actual active track settings if available
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        const settings = track.getSettings();
+        if (settings.facingMode) {
+          setFacingMode(settings.facingMode as 'user' | 'environment');
+        }
+        if (settings.deviceId) {
+          setActiveDeviceId(settings.deviceId);
+          const index = freshVideoInputs.findIndex(d => d.deviceId === settings.deviceId);
+          if (index !== -1) {
+            setCurrentDeviceIndex(index);
+          }
+        }
       }
 
       // Reset torch/flashlight local state
@@ -145,36 +188,83 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     }
   };
 
-  // Toggle Front / Back Camera or cycle through all input devices
+  // Toggle Front / Back Camera using facingMode (not device cycling, which breaks on phones with 3+ cameras)
   const handleSwitchCamera = async () => {
-    if (videoDevices.length > 1) {
-      const nextIndex = (currentDeviceIndex + 1) % videoDevices.length;
-      setCurrentDeviceIndex(nextIndex);
-      const nextDevice = videoDevices[nextIndex];
-      setActiveDeviceId(nextDevice.deviceId);
-      await startCamera(nextDevice.deviceId);
-    } else {
-      const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
-      setFacingMode(nextFacing);
-      
-      setErrorMsg(null);
-      setLoading(true);
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextFacing);
+    setActiveDeviceId(null);
+    setCurrentDeviceIndex(0);
+
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      stopCamera();
+
+      // Enumerate available video inputs first
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+      setVideoDevices(videoInputs);
+
+      // Try to find the matching device ID for nextFacing
+      const targetDeviceId = getDeviceByFacing(videoInputs, nextFacing);
+
+      const constraints: MediaStreamConstraints = {
+        video: targetDeviceId
+          ? { deviceId: { ideal: targetDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      };
+
+      let stream: MediaStream;
       try {
-        stopCamera();
-        const constraints = {
-          video: { facingMode: nextFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (firstErr) {
+        console.warn('Switch camera target failed, trying fallback:', firstErr);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch {
+          // Fallback: try without specific facingMode
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
         }
-      } catch (err) {
-        console.error('Error switching facing mode:', err);
-      } finally {
-        setLoading(false);
       }
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // Update facingMode state based on actual stream settings if available
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        const settings = track.getSettings();
+        if (settings.facingMode) {
+          setFacingMode(settings.facingMode as 'user' | 'environment');
+        } else {
+          setFacingMode(nextFacing);
+        }
+        if (settings.deviceId) {
+          setActiveDeviceId(settings.deviceId);
+          const index = videoInputs.findIndex(d => d.deviceId === settings.deviceId);
+          if (index !== -1) {
+            setCurrentDeviceIndex(index);
+          }
+        }
+      } else {
+        setFacingMode(nextFacing);
+      }
+
+      setTorchOn(false);
+    } catch (err) {
+      console.error('Error switching camera:', err);
+      setErrorMsg('Gagal mengganti kamera.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -210,150 +300,89 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       const video = videoRef.current;
       if (!video) throw new Error('Video element not found');
 
-      const stream = streamRef.current;
-      const track = stream.getVideoTracks()[0];
+      const track = streamRef.current.getVideoTracks()[0];
       if (!track) throw new Error('No video track available');
 
       // ================================================================
-      // STEP 1: Capture frame using multiple methods for mobile compat.
-      // ctx.drawImage(video) produces BLACK frames on many mobile browsers
-      // because Android renders video through hardware overlay.
-      // We use ImageCapture API which reads directly from the camera track.
+      // STEP 1: Capture a raw frame into a temporary canvas.
+      // Use ImageCapture.grabFrame() for Android (bypasses hardware overlay
+      // which causes ctx.drawImage(video) to produce BLACK frames).
       // ================================================================
-      let capturedBitmap: ImageBitmap | null = null;
+      let frameSource: CanvasImageSource = video;
+      let frameW = video.videoWidth || video.clientWidth || 1280;
+      let frameH = video.videoHeight || video.clientHeight || 720;
+      let bitmap: ImageBitmap | null = null;
 
-      // METHOD 1: ImageCapture.grabFrame() — best for Android Chrome
       const IC = (window as any).ImageCapture;
       if (typeof IC !== 'undefined' && track.readyState === 'live') {
         try {
-          const imageCapture = new IC(track);
-          capturedBitmap = await imageCapture.grabFrame();
-          console.log('[Capture] ✓ Method 1 (ImageCapture.grabFrame):', capturedBitmap!.width, 'x', capturedBitmap!.height);
-        } catch (e) {
-          console.warn('[Capture] ✗ Method 1 (ImageCapture.grabFrame) failed:', e);
-          capturedBitmap = null;
-        }
-      }
-
-      // METHOD 2: createImageBitmap(video) — fallback
-      if (!capturedBitmap) {
-        try {
-          // Ensure video has current data
-          if (video.readyState < 2) {
-            await new Promise<void>((resolve) => {
-              const onReady = () => { video.removeEventListener('canplay', onReady); resolve(); };
-              video.addEventListener('canplay', onReady);
-              setTimeout(resolve, 1500);
-            });
+          const grabbed: ImageBitmap = await new IC(track).grabFrame();
+          if (grabbed) {
+            bitmap = grabbed;
+            frameSource = grabbed;
+            frameW = grabbed.width;
+            frameH = grabbed.height;
+            console.log('[Capture] ✓ grabFrame:', frameW, 'x', frameH);
           }
-          capturedBitmap = await createImageBitmap(video);
-          console.log('[Capture] ✓ Method 2 (createImageBitmap):', capturedBitmap!.width, 'x', capturedBitmap!.height);
         } catch (e) {
-          console.warn('[Capture] ✗ Method 2 (createImageBitmap) failed:', e);
-          capturedBitmap = null;
+          console.warn('[Capture] grabFrame failed, using video element:', e);
         }
       }
 
-      // Determine source dimensions from captured bitmap or video element
-      const sourceWidth = capturedBitmap?.width || video.videoWidth || video.clientWidth || video.offsetWidth || 1280;
-      const sourceHeight = capturedBitmap?.height || video.videoHeight || video.clientHeight || video.offsetHeight || 720;
+      // Draw frame onto a temporary canvas (handles zoom cropping and horizontal mirroring for front camera)
+      const rawCanvas = document.createElement('canvas');
+      rawCanvas.width = frameW;
+      rawCanvas.height = frameH;
+      const rawCtx = rawCanvas.getContext('2d');
+      if (!rawCtx) throw new Error('Temp canvas context failed');
 
-      console.log('[Capture] Source:', sourceWidth, 'x', sourceHeight, '| method:', capturedBitmap ? 'bitmap' : 'direct-video');
-
-      // ================================================================
-      // STEP 2: Calculate target dimensions (max 1280px, min 320x240)
-      // ================================================================
-      const maxDim = 1280;
-      let targetWidth = sourceWidth;
-      let targetHeight = sourceHeight;
-      
-      if (targetWidth > maxDim || targetHeight > maxDim) {
-        if (targetWidth > targetHeight) {
-          targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
-          targetWidth = maxDim;
-        } else {
-          targetWidth = Math.round((targetWidth * maxDim) / targetHeight);
-          targetHeight = maxDim;
-        }
+      // Check if camera is front-facing (user), if so mirror horizontally
+      const isMirrored = facingMode === 'user';
+      if (isMirrored) {
+        rawCtx.translate(frameW, 0);
+        rawCtx.scale(-1, 1);
       }
-      targetWidth = Math.max(targetWidth, 320);
-      targetHeight = Math.max(targetHeight, 240);
 
-      // ================================================================
-      // STEP 3: Draw captured frame onto canvas
-      // ================================================================
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Context not available');
-
-      // Choose draw source: bitmap (reliable) or video element (fallback)
-      const drawSource: CanvasImageSource = capturedBitmap || video;
-
-      if (zoomVal > 1.0 && sourceWidth > 0 && sourceHeight > 0) {
-        const cropWidth = sourceWidth / zoomVal;
-        const cropHeight = sourceHeight / zoomVal;
-        const startX = (sourceWidth - cropWidth) / 2;
-        const startY = (sourceHeight - cropHeight) / 2;
-        ctx.drawImage(drawSource, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+      if (zoomVal > 1.0 && frameW > 0 && frameH > 0) {
+        const cw = frameW / zoomVal;
+        const ch = frameH / zoomVal;
+        const sx = (frameW - cw) / 2;
+        const sy = (frameH - ch) / 2;
+        rawCtx.drawImage(frameSource, sx, sy, cw, ch, 0, 0, frameW, frameH);
       } else {
-        ctx.drawImage(drawSource, 0, 0, targetWidth, targetHeight);
+        rawCtx.drawImage(frameSource, 0, 0, frameW, frameH);
       }
 
-      // Release bitmap memory early
-      if (capturedBitmap) {
-        capturedBitmap.close();
-        capturedBitmap = null;
-      }
+      // Release bitmap memory
+      if (bitmap) { bitmap.close(); bitmap = null; }
 
-      // Verify frame is not entirely black — if so, retry with direct video drawImage
-      try {
-        const px = ctx.getImageData(Math.floor(targetWidth / 2), Math.floor(targetHeight / 2), 1, 1).data;
-        console.log('[Capture] Center pixel RGBA:', px[0], px[1], px[2], px[3]);
-        if (px[0] === 0 && px[1] === 0 && px[2] === 0 && px[3] === 255) {
-          console.warn('[Capture] Frame is BLACK! Retrying with direct drawImage(video)...');
-          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-        }
-      } catch (e) {
-        console.warn('[Capture] Pixel verification failed:', e);
-      }
+      // Convert raw frame to a data URL
+      const rawDataUrl = rawCanvas.toDataURL('image/jpeg', 0.85);
+      console.log('[Capture] Raw frame captured, dataUrl length:', rawDataUrl.length);
 
       // ================================================================
-      // STEP 4: Apply watermark using the SAME ctx (never re-get context)
+      // STEP 2: Apply watermark using the PROVEN applyWatermark() function.
+      // This creates a FRESH <img> → FRESH canvas → watermark pipeline,
+      // completely isolated from any hardware video rendering artifacts.
+      // This is the SAME path used for uploaded file photos (which works).
       // ================================================================
       const activeGps = gpsData || {
         timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB',
         address: 'Mengambil alamat lokasi...'
       };
 
-      drawWatermarkOnCanvas(canvas, {
+      const watermarkedBlob = await applyWatermark(rawDataUrl, {
         ...activeGps,
         detailUnit,
         brandTitle,
-      }, ctx);
-
-      // ================================================================
-      // STEP 5: Output compressed JPEG blob
-      // ================================================================
-      const watermarkedBlob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              console.log('[Capture] ✓ Blob created, size:', blob.size, 'bytes');
-              resolve(blob);
-            } else {
-              reject(new Error('Canvas conversion failed'));
-            }
-          },
-          'image/jpeg',
-          0.75
-        );
       });
+
+      console.log('[Capture] ✓ Watermarked blob:', watermarkedBlob.size, 'bytes');
       const watermarkedDataUrl = URL.createObjectURL(watermarkedBlob);
 
-      // Stop camera stream but don't call onCapture yet. We show the preview!
+      // ================================================================
+      // STEP 3: Show preview
+      // ================================================================
       stopCamera();
       setPreviewBlob(watermarkedBlob);
       setPreviewDataUrl(watermarkedDataUrl);
@@ -442,6 +471,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             ref={videoRefCallback}
             autoPlay
             playsInline
+            muted
             className={`w-full h-full object-cover transition-transform duration-200 ease-out ${
               (!previewDataUrl && !errorMsg) ? 'block' : 'hidden'
             }`}
@@ -568,32 +598,32 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               </div>
 
               {/* Bottom Left Corner Overlay: Watermark Preview */}
-              {gpsData && (
-                <div className="camera-watermark-preview bg-black/60 backdrop-blur-md border border-white/10 p-3.5 rounded-xl text-left shadow-xl">
-                  {/* Vertical yellow line */}
-                  <div className="w-1.5 bg-amber-500 rounded-full self-stretch flex-shrink-0"></div>
-                  
-                  {/* Text content block */}
-                  <div className="camera-watermark-text-block">
-                    <p className="camera-watermark-item text-amber-500 text-xs font-bold font-sans uppercase tracking-wide">
-                      PT PAWA INDONESIA ENGINEER
-                    </p>
-                    <p className="camera-watermark-item text-white text-[10px] font-bold font-sans uppercase tracking-wide">
-                      {detailUnit ? `UNIT: ${detailUnit.toUpperCase()}` : 'KEGIATAN: DOKUMENTASI ENGINEER'}
-                    </p>
-                    <p className="camera-watermark-item text-slate-300 text-[9px] font-medium font-mono">
-                      {gpsData.timestamp}
-                    </p>
-                    <p className="camera-watermark-item text-amber-500 text-[9px] font-bold font-mono flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block mr-0.5 flex-shrink-0 border border-white/20"></span>
-                      {gpsData.latitude?.toFixed(6) ?? '-'}, {gpsData.longitude?.toFixed(6) ?? '-'} (±{gpsData.accuracy ? Math.round(gpsData.accuracy) : 37}m)
-                    </p>
-                    <p className="camera-watermark-address text-slate-400 text-[8px] font-medium leading-relaxed font-sans line-clamp-2 mt-0.5">
-                      {gpsData.address ?? 'Mengambil alamat lokasi...'}
-                    </p>
-                  </div>
+              <div className="camera-watermark-preview bg-black/60 backdrop-blur-md border border-white/10 p-3.5 rounded-xl text-left shadow-xl">
+                {/* Vertical yellow line */}
+                <div className="w-1.5 bg-amber-500 rounded-full self-stretch flex-shrink-0"></div>
+                
+                {/* Text content block */}
+                <div className="camera-watermark-text-block">
+                  <p className="camera-watermark-item text-amber-500 text-xs font-bold font-sans uppercase tracking-wide">
+                    {brandTitle || "PT PAWA INDONESIA ENGINEER"}
+                  </p>
+                  <p className="camera-watermark-item text-white text-[10px] font-bold font-sans uppercase tracking-wide">
+                    {detailUnit ? `UNIT: ${detailUnit.toUpperCase()}` : (brandTitle?.includes('HSE') ? 'KEGIATAN: DOKUMENTASI HSE' : 'KEGIATAN: DOKUMENTASI ENGINEER')}
+                  </p>
+                  <p className="camera-watermark-item text-slate-300 text-[9px] font-medium font-mono">
+                    {gpsData?.timestamp || new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB'}
+                  </p>
+                  <p className="camera-watermark-item text-amber-500 text-[9px] font-bold font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block mr-0.5 flex-shrink-0 border border-white/20"></span>
+                    {gpsData?.latitude && gpsData?.longitude 
+                      ? `${gpsData.latitude.toFixed(6)}, ${gpsData.longitude.toFixed(6)} (±${gpsData.accuracy ? Math.round(gpsData.accuracy) : 37}m)` 
+                      : 'Mencari sinyal GPS...'}
+                  </p>
+                  <p className="camera-watermark-address text-slate-400 text-[8px] font-medium leading-relaxed font-sans line-clamp-2 mt-0.5">
+                    {gpsData?.address || 'Mengambil alamat lokasi...'}
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
