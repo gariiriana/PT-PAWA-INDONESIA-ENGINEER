@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RotateCcw, Check, Sparkles, MapPin, X, RefreshCw, Zap, Plus, Minus, Download } from 'lucide-react';
-import { getGPSData, applyWatermark, WatermarkData } from '../utils/camera';
+import { getGPSData, applyWatermark, drawWatermarkOnCanvas, WatermarkData } from '../utils/camera';
 import './CameraModal.css';
 
 interface CameraModalProps {
@@ -304,7 +304,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       if (!track) throw new Error('No video track available');
 
       // ================================================================
-      // STEP 1: Capture a raw frame into a temporary canvas.
+      // STEP 1: Capture a raw frame.
       // Use ImageCapture.grabFrame() for Android (bypasses hardware overlay
       // which causes ctx.drawImage(video) to produce BLACK frames).
       // ================================================================
@@ -329,14 +329,16 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         }
       }
 
-      // Draw frame onto a temporary canvas (handles zoom cropping and horizontal mirroring for front camera)
+      // ================================================================
+      // STEP 2: Draw frame onto a temporary canvas at full resolution
+      // (handles zoom cropping and horizontal mirroring for front camera)
+      // ================================================================
       const rawCanvas = document.createElement('canvas');
       rawCanvas.width = frameW;
       rawCanvas.height = frameH;
       const rawCtx = rawCanvas.getContext('2d');
       if (!rawCtx) throw new Error('Temp canvas context failed');
 
-      // Check if camera is front-facing (user), if so mirror horizontally
       const isMirrored = facingMode === 'user';
       if (isMirrored) {
         rawCtx.translate(frameW, 0);
@@ -353,42 +355,75 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         rawCtx.drawImage(frameSource, 0, 0, frameW, frameH);
       }
 
-      // Release bitmap memory
+      // Release bitmap memory immediately
       if (bitmap) { bitmap.close(); bitmap = null; }
 
-      // Convert raw frame to a data URL
-      const rawDataUrl = rawCanvas.toDataURL('image/jpeg', 0.85);
-      console.log('[Capture] Raw frame captured, dataUrl length:', rawDataUrl.length);
+      // ================================================================
+      // STEP 3: Resize to max 1280px for file size compression,
+      // then draw watermark DIRECTLY on this final canvas.
+      // This bypasses the toDataURL → new Image → applyWatermark roundtrip
+      // that silently fails on mobile Android browsers.
+      // ================================================================
+      const maxDim = 1280;
+      let outW = frameW;
+      let outH = frameH;
+      if (outW > maxDim || outH > maxDim) {
+        if (outW > outH) {
+          outH = Math.round((outH * maxDim) / outW);
+          outW = maxDim;
+        } else {
+          outW = Math.round((outW * maxDim) / outH);
+          outH = maxDim;
+        }
+      }
 
-      // ================================================================
-      // STEP 2: Apply watermark using the PROVEN applyWatermark() function.
-      // This creates a FRESH <img> → FRESH canvas → watermark pipeline,
-      // completely isolated from any hardware video rendering artifacts.
-      // This is the SAME path used for uploaded file photos (which works).
-      // ================================================================
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = outW;
+      finalCanvas.height = outH;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) throw new Error('Final canvas context failed');
+
+      // Draw the raw captured frame scaled down onto final canvas
+      finalCtx.drawImage(rawCanvas, 0, 0, outW, outH);
+
+      // Prepare GPS/watermark metadata
       const activeGps = gpsData || {
         timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB',
         address: 'Mengambil alamat lokasi...'
       };
 
-      const watermarkedBlob = await applyWatermark(rawDataUrl, {
+      // Draw watermark DIRECTLY on the final canvas — no intermediate data URL
+      drawWatermarkOnCanvas(finalCanvas, {
         ...activeGps,
         detailUnit,
         brandTitle,
+      }, finalCtx);
+
+      console.log('[Capture] ✓ Watermark drawn directly on', outW, 'x', outH, 'canvas');
+
+      // ================================================================
+      // STEP 4: Convert final canvas to blob and show preview
+      // ================================================================
+      const watermarkedBlob: Blob = await new Promise((resolve, reject) => {
+        finalCanvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas toBlob conversion failed'));
+          },
+          'image/jpeg',
+          0.75
+        );
       });
 
       console.log('[Capture] ✓ Watermarked blob:', watermarkedBlob.size, 'bytes');
       const watermarkedDataUrl = URL.createObjectURL(watermarkedBlob);
 
-      // ================================================================
-      // STEP 3: Show preview
-      // ================================================================
       stopCamera();
       setPreviewBlob(watermarkedBlob);
       setPreviewDataUrl(watermarkedDataUrl);
     } catch (err: any) {
       console.error('[Capture] Error:', err);
-      setErrorMsg('Gagal mengambil gambar atau menambahkan watermark.');
+      setErrorMsg('Gagal mengambil gambar: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }

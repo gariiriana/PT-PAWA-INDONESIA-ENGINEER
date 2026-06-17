@@ -93,12 +93,13 @@ export function drawWatermarkOnCanvas(
     const fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
     // Watermark container layout - bottom left aligned floating box
-    const margin = Math.max(15, Math.round(width * 0.02));
-    const boxWidth = Math.min(500, Math.round(width * 0.6), width - (margin * 2));
-    const baseFontSize = Math.max(11, Math.round(width * 0.015));
+    // Sizes scaled up for better readability when photos are rendered small (e.g. in PDF cards)
+    const margin = Math.max(18, Math.round(width * 0.025));
+    const boxWidth = Math.min(600, Math.round(width * 0.65), width - (margin * 2));
+    const baseFontSize = Math.max(14, Math.round(width * 0.022));
 
-    const padding = Math.max(10, Math.round(width * 0.012));
-    const gap = Math.max(4, Math.round(width * 0.005));
+    const padding = Math.max(12, Math.round(width * 0.015));
+    const gap = Math.max(5, Math.round(width * 0.006));
 
     // Calculate address text wrap — set font BEFORE measureText
     ctx.font = `${baseFontSize - 3}px ${fontFamily}`;
@@ -128,31 +129,26 @@ export function drawWatermarkOnCanvas(
     const r = Math.min(10, boxWidth * 0.02);
     
     ctx.beginPath();
-    // Use roundRect if available (modern browsers), else fallback to simple rect
-    if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(x, y, boxWidth, boxHeight, r);
-    } else {
-      // Fallback: manual rounded rectangle path
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + boxWidth - r, y);
-      ctx.arcTo(x + boxWidth, y, x + boxWidth, y + r, r);
-      ctx.lineTo(x + boxWidth, y + boxHeight - r);
-      ctx.arcTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight, r);
-      ctx.lineTo(x + r, y + boxHeight);
-      ctx.arcTo(x, y + boxHeight, x, y + boxHeight - r, r);
-      ctx.lineTo(x, y + r);
-      ctx.arcTo(x, y, x + r, y, r);
-    }
+    // Manual rounded rectangle path to prevent roundRect compatibility errors on mobile WebViews
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + boxWidth - r, y);
+    ctx.arcTo(x + boxWidth, y, x + boxWidth, y + r, r);
+    ctx.lineTo(x + boxWidth, y + boxHeight - r);
+    ctx.arcTo(x + boxWidth, y + boxHeight, x + boxWidth - r, y + boxHeight, r);
+    ctx.lineTo(x + r, y + boxHeight);
+    ctx.arcTo(x, y + boxHeight, x, y + boxHeight - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
     ctx.closePath();
     ctx.fill();
 
     // Draw vertical yellow accent line on the left (matching user's blueprint layout with yellow accent)
     ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(x + padding, y + padding, 4, boxHeight - (padding * 2));
+    ctx.fillRect(x + padding, y + padding, 6, boxHeight - (padding * 2));
 
     // ---- Draw text metadata ----
     let currentY = y + padding + baseFontSize - 2;
-    const textLeft = x + padding + 12;
+    const textLeft = x + padding + 16;
 
     // Line 1: Brand Title (White, bold, matching user's blueprint layout)
     ctx.fillStyle = '#FFFFFF';
@@ -182,14 +178,14 @@ export function drawWatermarkOnCanvas(
     // Draw yellow pin circle (matching user's blueprint layout with yellow accent)
     ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    const pinX = textLeft + 2.5;
+    const pinX = textLeft + 3.5;
     const pinY = currentY - 3;
-    ctx.arc(pinX, pinY, 2.5, 0, 2 * Math.PI);
+    ctx.arc(pinX, pinY, 3.5, 0, 2 * Math.PI);
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(pinX - 2.5, pinY);
-    ctx.lineTo(pinX + 2.5, pinY);
-    ctx.lineTo(pinX, pinY + 4);
+    ctx.moveTo(pinX - 3.5, pinY);
+    ctx.lineTo(pinX + 3.5, pinY);
+    ctx.lineTo(pinX, pinY + 5.5);
     ctx.closePath();
     ctx.fill();
 
@@ -200,7 +196,7 @@ export function drawWatermarkOnCanvas(
     const coordText = meta.latitude && meta.longitude 
       ? `${meta.latitude.toFixed(6)}, ${meta.longitude.toFixed(6)}${accuracyStr}` 
       : 'GPS: Lokasi tidak tersedia';
-    ctx.fillText(coordText, textLeft + 9, currentY);
+    ctx.fillText(coordText, textLeft + 12, currentY);
     currentY += (baseFontSize - 2) + gap;
 
     // Line 5: Address
@@ -216,7 +212,7 @@ export function drawWatermarkOnCanvas(
     ctx.restore();
     console.log('[Watermark] Successfully drawn watermark on canvas');
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Watermark] CRITICAL: Error drawing watermark:', err);
   }
 }
@@ -236,49 +232,54 @@ export async function applyWatermark(
     }
     
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas context not available'));
-        return;
-      }
-
-      // Configure dimensions (limit size to max 1280px width to compress memory)
-      const maxDim = 1280;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
         }
-      }
 
-      canvas.width = width;
-      canvas.height = height;
+        // Configure dimensions (limit size to max 1280px width to compress memory)
+        const maxDim = 1280;
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
 
-      // Draw original image
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Draw watermark — pass existing ctx to avoid re-fetching
-      drawWatermarkOnCanvas(canvas, meta, ctx);
-
-      // Output compressed blob
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
           } else {
-            reject(new Error('Canvas conversion failed'));
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
           }
-        },
-        'image/jpeg',
-        0.75 // 75% quality compression
-      );
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw original image
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Draw watermark — pass existing ctx to avoid re-fetching
+        drawWatermarkOnCanvas(canvas, meta, ctx);
+
+        // Output compressed blob
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas conversion failed'));
+            }
+          },
+          'image/jpeg',
+          0.75 // 75% quality compression
+        );
+      } catch (err: any) {
+        console.error('[applyWatermark] Error in onload:', err);
+        reject(err);
+      }
     };
 
     img.onerror = (err) => {
