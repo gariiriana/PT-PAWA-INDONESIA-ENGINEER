@@ -513,16 +513,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     }
   };
 
-  const handlePreviewCardPhoto = async (card: CardData) => {
-    let url = card.localUrl;
-    let isTempUrl = false;
+  const handlePreviewCardPhoto = async (source: CardData | string | undefined | null) => {
+    if (!source) return;
+    let url: string | undefined = undefined;
+    let photoUrl: string | undefined = undefined;
 
-    if (!url && card.photoUrl) {
+    if (typeof source === 'string') {
+      if (source.startsWith('http://') || source.startsWith('https://')) {
+        url = source;
+      } else {
+        photoUrl = source;
+      }
+    } else {
+      url = source.localUrl;
+      photoUrl = source.photoUrl;
+    }
+
+    if (!url && photoUrl) {
       setLoading(true);
       try {
-        const result = await downloadFileFromFirestore(db, card.photoUrl);
+        const result = await downloadFileFromFirestore(db, photoUrl);
         url = result.dataUrl;
-        isTempUrl = true;
       } catch (err) {
         console.error('Fetch preview error:', err);
         showCustomAlert('Gagal memuat preview foto.', 'Error');
@@ -534,6 +545,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setPreviewPhotoSrc(url);
     }
   };
+
 
   const handleClosePhotoPreview = () => {
     if (previewPhotoSrc && !cards.some(c => c.localUrl === previewPhotoSrc)) {
@@ -1699,7 +1711,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                               <FirestoreImage
                                 db={db}
                                 attachmentId={step.photoUrl}
-                                className="w-14 h-14 object-cover rounded-lg border border-slate-800 flex-shrink-0"
+                                className="w-14 h-14 object-cover rounded-lg border border-slate-800 flex-shrink-0 cursor-zoom-in hover:opacity-80 transition"
+                                onClick={() => handlePreviewCardPhoto(step.photoUrl)}
                               />
                             ) : (
                               <div className="w-14 h-14 bg-slate-950 border border-slate-900 rounded-lg flex items-center justify-center text-[8px] text-slate-700 flex-shrink-0 font-bold">
