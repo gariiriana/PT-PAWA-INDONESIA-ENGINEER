@@ -210,30 +210,59 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       const video = videoRef.current;
       if (!video) throw new Error('Video element not found');
 
-      // Wait for video to have valid intrinsic dimensions (critical on mobile!)
-      // Some mobile browsers need a moment to report videoWidth/videoHeight
-      let waitAttempts = 0;
-      while (video.videoWidth === 0 && waitAttempts < 20) {
-        await new Promise(r => setTimeout(r, 50));
-        waitAttempts++;
+      const stream = streamRef.current;
+      const track = stream.getVideoTracks()[0];
+      if (!track) throw new Error('No video track available');
+
+      // ================================================================
+      // STEP 1: Capture frame using multiple methods for mobile compat.
+      // ctx.drawImage(video) produces BLACK frames on many mobile browsers
+      // because Android renders video through hardware overlay.
+      // We use ImageCapture API which reads directly from the camera track.
+      // ================================================================
+      let capturedBitmap: ImageBitmap | null = null;
+
+      // METHOD 1: ImageCapture.grabFrame() — best for Android Chrome
+      const IC = (window as any).ImageCapture;
+      if (typeof IC !== 'undefined' && track.readyState === 'live') {
+        try {
+          const imageCapture = new IC(track);
+          capturedBitmap = await imageCapture.grabFrame();
+          console.log('[Capture] ✓ Method 1 (ImageCapture.grabFrame):', capturedBitmap!.width, 'x', capturedBitmap!.height);
+        } catch (e) {
+          console.warn('[Capture] ✗ Method 1 (ImageCapture.grabFrame) failed:', e);
+          capturedBitmap = null;
+        }
       }
 
-      // Determine source dimensions with robust fallback chain
-      const sourceWidth = video.videoWidth || video.clientWidth || video.offsetWidth || 1280;
-      const sourceHeight = video.videoHeight || video.clientHeight || video.offsetHeight || 720;
+      // METHOD 2: createImageBitmap(video) — fallback
+      if (!capturedBitmap) {
+        try {
+          // Ensure video has current data
+          if (video.readyState < 2) {
+            await new Promise<void>((resolve) => {
+              const onReady = () => { video.removeEventListener('canplay', onReady); resolve(); };
+              video.addEventListener('canplay', onReady);
+              setTimeout(resolve, 1500);
+            });
+          }
+          capturedBitmap = await createImageBitmap(video);
+          console.log('[Capture] ✓ Method 2 (createImageBitmap):', capturedBitmap!.width, 'x', capturedBitmap!.height);
+        } catch (e) {
+          console.warn('[Capture] ✗ Method 2 (createImageBitmap) failed:', e);
+          capturedBitmap = null;
+        }
+      }
 
-      console.log('[Capture] Video dimensions:', {
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight,
-        clientWidth: video.clientWidth,
-        clientHeight: video.clientHeight,
-        offsetWidth: video.offsetWidth,
-        offsetHeight: video.offsetHeight,
-        resolved: `${sourceWidth}x${sourceHeight}`,
-        waitAttempts,
-      });
+      // Determine source dimensions from captured bitmap or video element
+      const sourceWidth = capturedBitmap?.width || video.videoWidth || video.clientWidth || video.offsetWidth || 1280;
+      const sourceHeight = capturedBitmap?.height || video.videoHeight || video.clientHeight || video.offsetHeight || 720;
 
-      // Calculate target scaled dimensions (limit max dimension to 1280px to compress memory and keep watermark size consistent)
+      console.log('[Capture] Source:', sourceWidth, 'x', sourceHeight, '| method:', capturedBitmap ? 'bitmap' : 'direct-video');
+
+      // ================================================================
+      // STEP 2: Calculate target dimensions (max 1280px, min 320x240)
+      // ================================================================
       const maxDim = 1280;
       let targetWidth = sourceWidth;
       let targetHeight = sourceHeight;
@@ -247,13 +276,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           targetHeight = maxDim;
         }
       }
-
-      // Safety: ensure minimum dimensions
       targetWidth = Math.max(targetWidth, 320);
       targetHeight = Math.max(targetHeight, 240);
 
-      console.log('[Capture] Canvas target:', targetWidth, 'x', targetHeight);
-
+      // ================================================================
+      // STEP 3: Draw captured frame onto canvas
+      // ================================================================
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
       canvas.height = targetHeight;
@@ -261,54 +289,66 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Context not available');
 
-      // If simulated zoom is applied, crop the center of the video frame safely using intrinsic video dimensions
-      if (zoomVal > 1.0 && video.videoWidth > 0 && video.videoHeight > 0) {
-        const cropWidth = video.videoWidth / zoomVal;
-        const cropHeight = video.videoHeight / zoomVal;
-        const startX = (video.videoWidth - cropWidth) / 2;
-        const startY = (video.videoHeight - cropHeight) / 2;
-        ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+      // Choose draw source: bitmap (reliable) or video element (fallback)
+      const drawSource: CanvasImageSource = capturedBitmap || video;
+
+      if (zoomVal > 1.0 && sourceWidth > 0 && sourceHeight > 0) {
+        const cropWidth = sourceWidth / zoomVal;
+        const cropHeight = sourceHeight / zoomVal;
+        const startX = (sourceWidth - cropWidth) / 2;
+        const startY = (sourceHeight - cropHeight) / 2;
+        ctx.drawImage(drawSource, startX, startY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
       } else {
-        // Use standard 5-argument drawImage to draw the entire video stream frame safely
-        ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+        ctx.drawImage(drawSource, 0, 0, targetWidth, targetHeight);
       }
 
-      // Verify that the video frame was actually drawn (not blank)
+      // Release bitmap memory early
+      if (capturedBitmap) {
+        capturedBitmap.close();
+        capturedBitmap = null;
+      }
+
+      // Verify frame is not entirely black — if so, retry with direct video drawImage
       try {
-        const checkPixel = ctx.getImageData(Math.floor(targetWidth / 2), Math.floor(targetHeight / 2), 1, 1).data;
-        console.log('[Capture] Center pixel RGBA:', checkPixel[0], checkPixel[1], checkPixel[2], checkPixel[3]);
+        const px = ctx.getImageData(Math.floor(targetWidth / 2), Math.floor(targetHeight / 2), 1, 1).data;
+        console.log('[Capture] Center pixel RGBA:', px[0], px[1], px[2], px[3]);
+        if (px[0] === 0 && px[1] === 0 && px[2] === 0 && px[3] === 255) {
+          console.warn('[Capture] Frame is BLACK! Retrying with direct drawImage(video)...');
+          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+        }
       } catch (e) {
-        console.warn('[Capture] Could not verify pixel data (CORS?):', e);
+        console.warn('[Capture] Pixel verification failed:', e);
       }
 
-      // Do NOT block camera shutter capture waiting for GPS fetch. Use background-loaded gpsData or fallback.
+      // ================================================================
+      // STEP 4: Apply watermark using the SAME ctx (never re-get context)
+      // ================================================================
       const activeGps = gpsData || {
         timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB',
         address: 'Mengambil alamat lokasi...'
       };
 
-      // Apply Burn-on-Apply Watermark directly onto the captured canvas!
-      // CRITICAL: Pass the SAME ctx that already has the video frame drawn,
-      // so we don't re-call getContext('2d') which can cause issues on some mobile browsers.
       drawWatermarkOnCanvas(canvas, {
         ...activeGps,
         detailUnit,
         brandTitle,
       }, ctx);
 
-      // Output compressed blob
+      // ================================================================
+      // STEP 5: Output compressed JPEG blob
+      // ================================================================
       const watermarkedBlob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              console.log('[Capture] Blob created, size:', blob.size);
+              console.log('[Capture] ✓ Blob created, size:', blob.size, 'bytes');
               resolve(blob);
             } else {
               reject(new Error('Canvas conversion failed'));
             }
           },
           'image/jpeg',
-          0.75 // 75% quality compression
+          0.75
         );
       });
       const watermarkedDataUrl = URL.createObjectURL(watermarkedBlob);
@@ -318,7 +358,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       setPreviewBlob(watermarkedBlob);
       setPreviewDataUrl(watermarkedDataUrl);
     } catch (err: any) {
-      console.error('[Capture] Error capturing image:', err);
+      console.error('[Capture] Error:', err);
       setErrorMsg('Gagal mengambil gambar atau menambahkan watermark.');
     } finally {
       setLoading(false);
