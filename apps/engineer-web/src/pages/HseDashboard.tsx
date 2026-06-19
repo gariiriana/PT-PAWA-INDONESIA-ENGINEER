@@ -9,7 +9,8 @@ import {
 import { auth, db } from '../config/firebase';
 import { 
   ReportHSE, SafetyInspection, SafetyCheckItem, GPSCoords,
-  uploadFileToFirestore, downloadFileFromFirestore, FirestoreImage
+  uploadFileToFirestore, downloadFileFromFirestore, FirestoreImage,
+  K3CheckItem, K3CheckSubItem
 } from '@shared/index';
 import CameraModal from '@shared/components/CameraModal';
 import ImageEditor from '../components/ImageEditor';
@@ -30,6 +31,57 @@ const SAFETY_CHECKLIST_TEMPLATE: Omit<SafetyCheckItem, 'checked' | 'notes'>[] = 
   { id: 'housekeep', category: 'Housekeeping', question: 'Area kerja bersih, rapi, dan tidak ada ceceran oli/cairan berbahaya?' },
   { id: 'hotwork', category: 'High Risk', question: 'Pekerjaan panas (welding/grinding) dilengkapi dengan fire blanket?' },
 ];
+
+// K3 Checklist template with parent & sub items
+const K3_CHECKLIST_TEMPLATE: Omit<K3CheckItem, 'checked' | 'isExpanded'>[] = [
+  { id: 'mop', label: 'MOP' },
+  { id: 'jsa', label: 'JSA' },
+  { id: 'ptw', label: 'PTW' },
+  { id: 'ppe_mandatory', label: 'PPE MANDATORY' },
+  {
+    id: 'ppe_khusus',
+    label: 'PPE KHUSUS',
+    subItems: [
+      { id: 'ppe_khusus_body_harness', label: 'Body Harness', checked: false },
+      { id: 'ppe_khusus_sarung_hv', label: 'Sarung Tangan Karet High Voltage Resistance', checked: false },
+      { id: 'ppe_khusus_sarung_cr', label: 'Sarung Tangan Karet Chemical Resistance', checked: false },
+      { id: 'ppe_khusus_apron', label: 'Apron', checked: false },
+      { id: 'ppe_khusus_kedok', label: 'Kedok Las', checked: false },
+      { id: 'ppe_khusus_cover_shoes', label: 'Cover Shoes', checked: false },
+      { id: 'ppe_khusus_respirator', label: 'Respirator', checked: false },
+      { id: 'ppe_khusus_sarung_cut', label: 'Sarung Tangan Cut Resistance', checked: false },
+      { id: 'ppe_khusus_pelindung_mata', label: 'Pelindung Mata', checked: false },
+    ],
+  },
+  {
+    id: 'dokumen',
+    label: 'DOKUMEN',
+    subItems: [
+      { id: 'dokumen_msds', label: 'MSDS', checked: false },
+    ],
+  },
+  { id: 'tools_bertagging', label: 'TOOLS BERTAGGING & SDH DI-CHECKLIST' },
+  { id: 'log_maintenance', label: 'LOG MAINTENANCE' },
+  { id: 'housekeeping', label: 'HOUSEKEEPING AREA KERJA' },
+  {
+    id: 'safety_sign',
+    label: 'SAFETY SIGN',
+    subItems: [
+      { id: 'safety_sign_pita', label: 'Pita Baricade', checked: false },
+      { id: 'safety_sign_cone', label: 'Safety Cone', checked: false },
+      { id: 'safety_sign_stik', label: 'Stik Bariket', checked: false },
+      { id: 'safety_sign_under', label: 'Under Maintenance', checked: false },
+    ],
+  },
+];
+
+const generateInitialChecklist = (): K3CheckItem[] =>
+  K3_CHECKLIST_TEMPLATE.map(t => ({
+    ...t,
+    checked: false,
+    isExpanded: false,
+    subItems: t.subItems ? t.subItems.map(s => ({ ...s, checked: false })) : undefined,
+  }));
 
 interface CardData {
   id: string;
@@ -132,6 +184,11 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
   const [personil, setPersonil] = useState('');
   const [pic, setPic] = useState('');
   const [anggota, setAnggota] = useState('');
+
+  // K3 Checklist state
+  const [k3Checklist, setK3Checklist] = useState<K3CheckItem[]>(generateInitialChecklist());
+  const [safeCondition, setSafeCondition] = useState(false);
+  const [safeAction, setSafeAction] = useState(false);
 
   // Preview Modal state
   const [previewInspection, setPreviewInspection] = useState<SafetyInspection | null>(null);
@@ -373,6 +430,15 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setComments(inspection.comments || '');
     setOverallStatus(inspection.overallStatus || 'Safe');
 
+    // Populate K3 checklist
+    if (inspection.k3Checklist && inspection.k3Checklist.length > 0) {
+      setK3Checklist(inspection.k3Checklist.map(item => ({ ...item, isExpanded: false })));
+    } else {
+      setK3Checklist(generateInitialChecklist());
+    }
+    setSafeCondition(inspection.safeCondition ?? false);
+    setSafeAction(inspection.safeAction ?? false);
+
     // Populate documentation cards
     const editingCards: CardData[] = (inspection.steps || []).map((step, idx) => ({
       id: `card_edit_${idx}_${Math.random()}`,
@@ -399,9 +465,44 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setComments('');
     setOverallStatus('Safe');
     setCards(generateInitialCards());
+    setK3Checklist(generateInitialChecklist());
+    setSafeCondition(false);
+    setSafeAction(false);
 
     // Switch tab to archive
     setActiveTab('arsip-laporan');
+  };
+
+  // K3 Checklist handlers
+  const handleToggleExpand = (id: string) => {
+    setK3Checklist(prev => prev.map(item =>
+      item.id === id ? { ...item, isExpanded: !item.isExpanded } : item
+    ));
+  };
+
+  const handleToggleParent = (id: string) => {
+    setK3Checklist(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const newChecked = !item.checked;
+      return {
+        ...item,
+        checked: newChecked,
+        subItems: item.subItems
+          ? item.subItems.map(s => ({ ...s, checked: newChecked }))
+          : undefined,
+      };
+    }));
+  };
+
+  const handleToggleSub = (parentId: string, subId: string) => {
+    setK3Checklist(prev => prev.map(item => {
+      if (item.id !== parentId) return item;
+      const newSubItems = (item.subItems || []).map(s =>
+        s.id === subId ? { ...s, checked: !s.checked } : s
+      );
+      const allChecked = newSubItems.every(s => s.checked);
+      return { ...item, subItems: newSubItems, checked: allChecked };
+    }));
   };
 
   // Smart Camera capture result
@@ -514,6 +615,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         personil: personil,
         pic: pic,
         anggota: anggota,
+        k3Checklist: k3Checklist.map(({ isExpanded: _exp, ...rest }) => rest),
+        safeCondition,
+        safeAction,
         steps: cards.map((card, idx) => ({
           stepNumber: idx + 1,
           task: `Dokumentasi ${idx + 1}`,
@@ -538,6 +642,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       setPic('');
       setAnggota('');
       setCards(generateInitialCards());
+      setK3Checklist(generateInitialChecklist());
+      setSafeCondition(false);
+      setSafeAction(false);
       setEditingInspectionId(null);
       setOriginalCreatedAt(null);
       
@@ -775,6 +882,113 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     doc.text(wrapText(inspection.pic || '-', 60), col2X + 22, metaY + 14);
     doc.text(wrapText(inspection.anggota || '-', 60), col2X + 22, metaY + 22);
 
+    // K3 CHECKLIST SECTION
+    const k3Items = inspection.k3Checklist || [];
+    let checkY = metaY + metaH + 4;
+
+    if (k3Items.length > 0) {
+      const colW = contentW / 2;
+
+      const drawCheckItem = (
+        item: { label: string; checked: boolean },
+        x: number,
+        y: number,
+        isSubItem: boolean = false
+      ): number => {
+        const indent = isSubItem ? 5 : 0;
+        const r = isSubItem ? 1.8 : 2.5;
+        const cx = x + indent + r + 1;
+        const cy = y - 0.5;
+        const fontSize = isSubItem ? 6.5 : 7.5;
+        if (item.checked) {
+          doc.setFillColor(34, 139, 34);
+          doc.circle(cx, cy, r, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('Helvetica', 'bold');
+          doc.setFontSize(fontSize - 1);
+          doc.text('\u2713', cx - 0.8, cy + 0.7);
+        } else {
+          doc.setFillColor(200, 30, 30);
+          doc.circle(cx, cy, r, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('Helvetica', 'bold');
+          doc.setFontSize(fontSize - 1);
+          doc.text('\u2717', cx - 0.9, cy + 0.7);
+        }
+        doc.setFont('Helvetica', isSubItem ? 'normal' : 'bold');
+        doc.setFontSize(fontSize);
+        doc.setTextColor(
+          item.checked ? 22 : 160,
+          item.checked ? 100 : 30,
+          item.checked ? 22 : 30
+        );
+        const labelX = x + indent + r * 2 + 2.5;
+        const labelMaxW = colW - indent - r * 2 - 6;
+        const labelLines = doc.splitTextToSize(item.label, labelMaxW) as string[];
+        doc.text(labelLines, labelX, y + 0.3);
+        return labelLines.length;
+      };
+
+      if (checkY + 10 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+      doc.setFillColor(20, 40, 80);
+      doc.rect(margin, checkY, contentW, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED)', margin + 3, checkY + 4.8);
+      checkY += 9;
+
+      const leftItems = k3Items.filter((_, i) => i % 2 === 0);
+      const rightItems = k3Items.filter((_, i) => i % 2 === 1);
+      const maxRows = Math.max(leftItems.length, rightItems.length);
+
+      for (let row = 0; row < maxRows; row++) {
+        if (checkY + 8 > pageHeight - 15) {
+          doc.addPage(); drawPageHeader(); checkY = 32;
+          doc.setFillColor(20, 40, 80);
+          doc.rect(margin, checkY, contentW, 6, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('Helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.text('I. CHECKLIST (cont.)', margin + 3, checkY + 4);
+          checkY += 8;
+        }
+        const li = leftItems[row];
+        const ri = rightItems[row];
+        let maxRowH = 5.5;
+        if (li) { const lines = drawCheckItem(li, margin, checkY); maxRowH = Math.max(maxRowH, lines * 5); }
+        if (ri) { const lines = drawCheckItem(ri, margin + colW, checkY); maxRowH = Math.max(maxRowH, lines * 5); }
+        checkY += maxRowH;
+
+        const leftSubs = li?.subItems || [];
+        const rightSubs = ri?.subItems || [];
+        const maxSubs = Math.max(leftSubs.length, rightSubs.length);
+        for (let si = 0; si < maxSubs; si++) {
+          if (checkY + 5 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+          let subRowH = 4.5;
+          if (leftSubs[si]) { const lines = drawCheckItem(leftSubs[si], margin, checkY, true); subRowH = Math.max(subRowH, lines * 4.2); }
+          if (rightSubs[si]) { const lines = drawCheckItem(rightSubs[si], margin + colW, checkY, true); subRowH = Math.max(subRowH, lines * 4.2); }
+          checkY += subRowH;
+        }
+        checkY += 1.5;
+      }
+
+      checkY += 3;
+      if (checkY + 15 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(80, 80, 80);
+      doc.text('KESIMPULAN PEKERJAAN', pageWidth / 2, checkY, { align: 'center' });
+      checkY += 5.5;
+      drawCheckItem({ label: 'SAFE CONDITION', checked: inspection.safeCondition ?? false }, margin + 5, checkY);
+      drawCheckItem({ label: 'SAFE ACTION', checked: inspection.safeAction ?? false }, margin + colW + 5, checkY);
+      checkY += 9;
+    }
+    // END K3 CHECKLIST
+
+    // Cards start below checklist (or below metadata if no checklist)
+    const cardStartY = k3Items.length > 0 ? checkY : metaY + metaH + 4;
+
     const steps = inspection.steps || [];
 
     // 1. Gather all unique photo URLs to download
@@ -811,7 +1025,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     const gap = 8;
     
     let currentPage = 1;
-    let currentY = 62; // start drawing cards below the metadata block (which ends at Y=58)
+    let currentY = cardStartY; // start drawing cards below the checklist (or metadata if no checklist)
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -1062,6 +1276,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         personil: personil,
         pic: pic,
         anggota: anggota,
+        k3Checklist: k3Checklist.map(({ isExpanded: _exp, ...rest }) => rest),
+        safeCondition,
+        safeAction,
         steps: cards.map((card, idx) => ({
           stepNumber: idx + 1,
           task: `Dokumentasi ${idx + 1}`,
@@ -1092,6 +1309,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       setPic('');
       setAnggota('');
       setCards(generateInitialCards());
+      setK3Checklist(generateInitialChecklist());
+      setSafeCondition(false);
+      setSafeAction(false);
       setEditingInspectionId(null);
       setOriginalCreatedAt(null);
       
@@ -1392,6 +1612,118 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                     </div>
                   </div>
                 </div>
+
+                {/* K3 CHECKLIST SECTION */}
+                <div className="glass-panel rounded-2xl border border-slate-800/80 bg-slate-900/30 overflow-hidden shadow-xl mt-6">
+                  <div className="flex items-center justify-between px-5 py-4 bg-slate-900/50 border-b border-slate-800/50">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#828200]/20 text-[#999900] flex items-center justify-center">
+                        <CheckSquare size={14} />
+                      </div>
+                      <h2 className="text-sm font-extrabold text-white uppercase tracking-wider">Checklist Keselamatan Kerja</h2>
+                    </div>
+                    <span className="text-[10px] font-bold bg-[#828200]/20 text-[#999900] border border-[#828200]/30 px-2.5 py-1 rounded-full font-mono">
+                      {k3Checklist.filter(item => item.checked).length + (safeCondition ? 1 : 0) + (safeAction ? 1 : 0)}/{k3Checklist.length + 2}
+                    </span>
+                  </div>
+
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {k3Checklist.map(item => (
+                      <div key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.subItems && item.subItems.length > 0) {
+                              handleToggleExpand(item.id);
+                            } else {
+                              handleToggleParent(item.id);
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                            item.checked
+                              ? 'bg-[#1a3a1a] border-green-700/50 text-green-400'
+                              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-900/80 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${
+                              item.checked ? 'bg-green-600 border-green-500' : 'border-slate-700 bg-slate-900'
+                            }`}>
+                              {item.checked && <CheckCircle2 size={10} color="white" />}
+                            </span>
+                            <span className="text-left leading-tight">{item.label}</span>
+                          </div>
+                          <span className={`text-sm flex-shrink-0 ml-2 ${item.checked ? 'text-green-500' : 'text-red-500'}`}>
+                            {item.subItems && item.subItems.length > 0
+                              ? (item.isExpanded ? '▾' : '▸')
+                              : (item.checked ? '✓' : '✕')
+                            }
+                          </span>
+                        </button>
+
+                        {item.subItems && item.subItems.length > 0 && item.isExpanded && (
+                          <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-800 pl-3 py-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleParent(item.id)}
+                              className={`w-full text-left text-[10px] font-bold uppercase px-2 py-1 rounded transition cursor-pointer ${
+                                item.checked ? 'text-green-500' : 'text-slate-600 hover:text-slate-400'
+                              }`}
+                            >
+                              {item.checked ? '✓ SEMUA DIPILIH' : '☐ PILIH SEMUA'}
+                            </button>
+                            {item.subItems.map(sub => (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => handleToggleSub(item.id, sub.id)}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-medium text-left transition cursor-pointer border ${
+                                  sub.checked
+                                    ? 'bg-[#1a3a1a]/60 border-green-800/40 text-green-400'
+                                    : 'bg-slate-950/40 border-slate-800/60 text-slate-500 hover:bg-slate-900/40 hover:text-slate-300'
+                                }`}
+                              >
+                                <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                  sub.checked ? 'bg-green-500 border-green-400' : 'border-slate-700'
+                                }`}>
+                                  {sub.checked && <CheckCircle2 size={7} color="white" />}
+                                </span>
+                                {sub.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-800/50 px-4 py-3">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 text-center mb-2">Kesimpulan Pekerjaan</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[{ label: 'Safe Condition', value: safeCondition, setter: setSafeCondition }, { label: 'Safe Action', value: safeAction, setter: setSafeAction }].map(({ label, value, setter }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => setter(v => !v)}
+                          className={`flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                            value ? 'bg-[#1a3a1a] border-green-700/50 text-green-400' : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:bg-slate-900/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded flex items-center justify-center border ${
+                              value ? 'bg-green-600 border-green-500' : 'border-slate-700 bg-slate-900'
+                            }`}>
+                              {value && <CheckCircle2 size={10} color="white" />}
+                            </span>
+                            {label}
+                          </div>
+                          <span className={value ? 'text-green-500' : 'text-red-500'}>{value ? '✓' : '✕'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* END K3 CHECKLIST */}
 
                 {/* Documentation Section Header & Controls */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-8 mb-4">

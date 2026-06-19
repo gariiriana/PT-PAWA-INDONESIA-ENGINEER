@@ -78,6 +78,20 @@ export interface SafetyCheckItem {
   notes?: string;
 }
 
+export interface K3CheckSubItem {
+  id: string;
+  label: string;
+  checked: boolean;
+}
+
+export interface K3CheckItem {
+  id: string;
+  label: string;
+  checked: boolean;
+  subItems?: K3CheckSubItem[];
+  isExpanded?: boolean;
+}
+
 export interface SafetyInspection {
   id?: string;
   title: string;
@@ -96,6 +110,11 @@ export interface SafetyInspection {
   pic?: string;
   anggota?: string;
   steps?: MaintenanceStep[];
+
+  // K3 Checklist fields
+  k3Checklist?: K3CheckItem[];
+  safeCondition?: boolean;
+  safeAction?: boolean;
 }
 
 export interface PermitToWork {
