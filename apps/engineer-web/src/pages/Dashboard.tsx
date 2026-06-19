@@ -1103,7 +1103,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
               PT PAWA INDONESIA
               <span className="text-xs bg-[#828200] text-white font-mono px-2 py-0.5 rounded">ENGINEER</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">FACILITY MANAGEMENT & MAINTENANCE</p>
+            <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">FACILITY MANAGEMENT & PEKERJAAN</p>
           </div>
         </div>
 
