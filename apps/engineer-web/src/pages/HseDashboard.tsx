@@ -178,6 +178,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
   const [comments, setComments] = useState('');
 
   // K3 Metadata fields for Safety Inspection
+  const [tanggalInspeksi, setTanggalInspeksi] = useState(new Date().toISOString().slice(0, 10));
   const [inspectorK3, setInspectorK3] = useState(userProfile?.name && userProfile.name.toLowerCase() !== 'hse' ? userProfile.name : '');
   const [aktivitas, setAktivitas] = useState('');
   const [lokasi, setLokasi] = useState('');
@@ -429,6 +430,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setInspectorK3(inspection.inspectorK3 || '');
     setComments(inspection.comments || '');
     setOverallStatus(inspection.overallStatus || 'Safe');
+    setTanggalInspeksi(inspection.createdAt ? new Date(inspection.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
 
     // Populate K3 checklist
     if (inspection.k3Checklist && inspection.k3Checklist.length > 0) {
@@ -466,6 +468,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setOverallStatus('Safe');
     setCards(generateInitialCards());
     setK3Checklist(generateInitialChecklist());
+    setTanggalInspeksi(new Date().toISOString().slice(0, 10));
     setSafeCondition(false);
     setSafeAction(false);
 
@@ -602,10 +605,10 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
 
     try {
       const newInspection: SafetyInspection = {
-        title: `Inspeksi HSE - ${aktivitas} - ${new Date(originalCreatedAt || new Date().toISOString()).toLocaleDateString('id-ID')}`,
+        title: `Inspeksi HSE - ${aktivitas} - ${new Date(tanggalInspeksi).toLocaleDateString('id-ID')}`,
         hseId: userProfile.uid,
         hseName: userProfile.name,
-        createdAt: originalCreatedAt || new Date().toISOString(),
+        createdAt: new Date(tanggalInspeksi).toISOString(),
         checklist: [], // Empty as it is replaced by documentation cards
         overallStatus,
         comments,
@@ -647,6 +650,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       setSafeAction(false);
       setEditingInspectionId(null);
       setOriginalCreatedAt(null);
+      setTanggalInspeksi(new Date().toISOString().slice(0, 10));
       
       await fetchArchives();
       setActiveTab('arsip-laporan');
@@ -1263,10 +1267,10 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setLoading(true);
     try {
       const newInspection: SafetyInspection = {
-        title: `Inspeksi HSE - ${aktivitas} - ${new Date(originalCreatedAt || new Date().toISOString()).toLocaleDateString('id-ID')}`,
+        title: `Inspeksi HSE - ${aktivitas} - ${new Date(tanggalInspeksi).toLocaleDateString('id-ID')}`,
         hseId: userProfile.uid,
         hseName: userProfile.name,
-        createdAt: originalCreatedAt || new Date().toISOString(),
+        createdAt: new Date(tanggalInspeksi).toISOString(),
         checklist: [],
         overallStatus,
         comments,
@@ -1314,6 +1318,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       setSafeAction(false);
       setEditingInspectionId(null);
       setOriginalCreatedAt(null);
+      setTanggalInspeksi(new Date().toISOString().slice(0, 10));
       
       await fetchArchives();
       setActiveTab('arsip-laporan');
@@ -1508,7 +1513,24 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                     <h2 className="text-sm font-extrabold text-white uppercase tracking-wider">Informasi INSPECTION</h2>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                    {/* Tanggal Inspeksi */}
+                    <div>
+                      <label htmlFor="tanggalInspeksi" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Calendar size={12} className="text-[#828200]" />
+                        TANGGAL INSPEKSI
+                      </label>
+                      <input
+                        id="tanggalInspeksi"
+                        type="date"
+                        required
+                        value={tanggalInspeksi}
+                        onChange={(e) => setTanggalInspeksi(e.target.value)}
+                        title="Tanggal Inspeksi"
+                        className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+                      />
+                    </div>
+
                     {/* Inspector HSE */}
                     <div>
                       <label htmlFor="inspectorK3" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -1521,7 +1543,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={inspectorK3}
                         onChange={(e) => setInspectorK3(e.target.value)}
-                        placeholder="Nama Inspector HSE"
+                        title="Inspector HSE"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1538,7 +1560,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={aktivitas}
                         onChange={(e) => setAktivitas(e.target.value)}
-                        placeholder="Contoh: P.M Pekerjaan LIFT"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1555,7 +1576,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={lokasi}
                         onChange={(e) => setLokasi(e.target.value)}
-                        placeholder="Lokasi Pekerjaan"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1572,7 +1592,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={personil}
                         onChange={(e) => setPersonil(e.target.value)}
-                        placeholder="Contoh: 4 org"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1589,7 +1608,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={pic}
                         onChange={(e) => setPic(e.target.value)}
-                        placeholder="Nama PIC"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1606,7 +1624,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={anggota}
                         onChange={(e) => setAnggota(e.target.value)}
-                        placeholder="Nama anggota (pisahkan koma)"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
@@ -1876,7 +1893,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                             const updated = cards.map(c => c.id === card.id ? { ...c, description: e.target.value } : c);
                             setCards(updated);
                           }}
-                          placeholder="Tuliskan keterangan detail K3..."
+                          title="Keterangan Detail K3"
                           rows={2}
                           className="w-full bg-transparent border-none resize-none text-xs text-slate-300 placeholder-slate-700 focus:outline-none focus:ring-0 p-0"
                         />
@@ -1894,7 +1911,6 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                       rows={3}
                       value={comments}
                       onChange={(e) => setComments(e.target.value)}
-                      placeholder="Tuliskan rekomendasi perbaikan atau laporan detail mitigasi..."
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200 resize-none"
                     />
                   </div>

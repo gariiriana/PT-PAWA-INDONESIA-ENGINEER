@@ -57,6 +57,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const [comments, setComments] = useState('');
 
   // K3 Metadata fields for Safety Inspection
+  const [tanggalInspeksi, setTanggalInspeksi] = useState(new Date().toISOString().slice(0, 10));
   const [inspectorK3, setInspectorK3] = useState(userProfile?.name || '');
   const [aktivitas, setAktivitas] = useState('');
   const [lokasi, setLokasi] = useState('');
@@ -260,7 +261,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         title: inspectionTitle,
         hseId: userProfile.uid,
         hseName: userProfile.name,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(tanggalInspeksi).toISOString(),
         checklist,
         overallStatus,
         comments,
@@ -282,6 +283,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       setPersonil('');
       setPic('');
       setAnggota('');
+      setTanggalInspeksi(new Date().toISOString().slice(0, 10));
       
       // Reset checklist choices
       const resetList = checklist.map(item => ({ ...item, checked: true, notes: '' }));
@@ -893,7 +895,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                           required
                           value={hazardTitle}
                           onChange={(e) => setHazardTitle(e.target.value)}
-                          placeholder="Contoh: Tangga Scaffolding Tidak Kokoh di Lapangan"
                           className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                         />
                       </div>
@@ -921,7 +922,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                           required
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Jelaskan potensi ancaman keselamatan secara detail..."
+                          title="Deskripsi Bahaya"
                           rows={4}
                           className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none"
                         />
@@ -932,7 +933,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                           required
                           value={correctiveAction}
                           onChange={(e) => setCorrectiveAction(e.target.value)}
-                          placeholder="Tindakan darurat yang diambil untuk mereduksi bahaya..."
+                          title="Tindakan Korektif Langsung"
                           rows={4}
                           className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none"
                         />
@@ -1000,7 +1001,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={inspectionTitle}
                       onChange={(e) => setInspectionTitle(e.target.value)}
-                      placeholder="Contoh: Inspeksi K3 Mingguan Project Data Center Cikarang"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none"
                     />
                   </div>
@@ -1020,7 +1020,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-800/40 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-slate-800/40 pt-4">
+                  {/* Tanggal Inspeksi */}
+                  <div>
+                    <label htmlFor="tanggalInspeksi" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Calendar size={12} className="text-[#828200]" />
+                      Tanggal Inspeksi
+                    </label>
+                    <input
+                      id="tanggalInspeksi"
+                      type="date"
+                      required
+                      value={tanggalInspeksi}
+                      onChange={(e) => setTanggalInspeksi(e.target.value)}
+                      title="Tanggal Inspeksi"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
                   {/* Inspector K3 */}
                   <div>
                     <label htmlFor="inspectorK3" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Inspector K3</label>
@@ -1030,7 +1047,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={inspectorK3}
                       onChange={(e) => setInspectorK3(e.target.value)}
-                      placeholder="Nama Inspector K3"
+                      title="Inspector K3"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1044,7 +1061,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={aktivitas}
                       onChange={(e) => setAktivitas(e.target.value)}
-                      placeholder="Contoh: P.M Pekerjaan LDB & RDB"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1058,7 +1074,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={lokasi}
                       onChange={(e) => setLokasi(e.target.value)}
-                      placeholder="Contoh: Ged.Campus Travo Room 1,3"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1072,7 +1087,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={personil}
                       onChange={(e) => setPersonil(e.target.value)}
-                      placeholder="Contoh: 4 orang dme"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1086,7 +1100,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={pic}
                       onChange={(e) => setPic(e.target.value)}
-                      placeholder="Contoh: Tonggo"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1100,7 +1113,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={anggota}
                       onChange={(e) => setAnggota(e.target.value)}
-                      placeholder="Contoh: Dison, Sulardi, Bayu"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>
@@ -1125,7 +1137,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                             updated[idx].notes = e.target.value;
                             setChecklist(updated);
                           }}
-                          placeholder="Tambahkan catatan khusus..."
                           className="mt-2 text-xs w-full bg-slate-900/30 border border-slate-800 rounded px-2.5 py-1 text-slate-300"
                         />
                       </div>
@@ -1155,7 +1166,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                     id="comments"
                     value={comments}
                     onChange={(e) => setComments(e.target.value)}
-                    placeholder="Tuliskan rekomendasi perbaikan atau laporan detail mitigasi..."
                     rows={3}
                     className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none"
                   />

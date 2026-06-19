@@ -1211,7 +1211,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={scopeOfWork}
                       onChange={(e) => setScopeOfWork(e.target.value)}
-                      placeholder="cth. Electrical / Mechanical / Cooling"
+                      title="Scope of Work"
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
@@ -1224,7 +1224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={subWork}
                       onChange={(e) => setSubWork(e.target.value)}
-                      placeholder="cth. Cleaning & Testing"
+                      title="Sub Work"
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
@@ -1237,7 +1237,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={spvEngineer}
                       onChange={(e) => setSpvEngineer(e.target.value)}
-                      placeholder="cth. Supervisor / Engineer"
+                      title="SPV / Eng"
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
@@ -1413,7 +1413,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                           <textarea
                             value={card.description}
                             onChange={(e) => updateCardDescription(card.id, e.target.value)}
-                            placeholder="cth. Name Plate atau deskripsi..."
+                            title="Deskripsi Kartu"
                             rows={2}
                             className="w-full bg-transparent border-none resize-none text-xs text-slate-300 placeholder-slate-700 focus:outline-none focus:ring-0 p-0"
                           />
