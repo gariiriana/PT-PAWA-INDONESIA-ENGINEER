@@ -1,9 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: string | HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          'expired-callback'?: () => void;
+          'error-callback'?: () => void;
+          theme?: 'light' | 'dark' | 'auto';
+          [key: string]: any;
+        }
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
 
 const BACKGROUND_IMAGES = [
   'https://pawaengineering.co.id/wp-content/uploads/2022/11/BG-Only1.webp',
@@ -25,6 +45,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     // Preload background images
     BACKGROUND_IMAGES.forEach((src) => {
@@ -36,6 +60,48 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       setBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
     }, 6000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let checkInterval: any;
+
+    const initTurnstile = () => {
+      if (window.turnstile && turnstileRef.current) {
+        clearInterval(checkInterval);
+        try {
+          turnstileRef.current.innerHTML = '';
+          const id = window.turnstile.render(turnstileRef.current, {
+            sitekey: import.meta.env.VITE_CLOUDFLARE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
+            callback: (token: string) => {
+              setTurnstileToken(token);
+            },
+            'expired-callback': () => {
+              setTurnstileToken(null);
+            },
+            'error-callback': () => {
+              setTurnstileToken(null);
+            },
+            theme: 'dark',
+          });
+          widgetIdRef.current = id;
+        } catch (err) {
+          console.error('Failed to render Turnstile:', err);
+        }
+      }
+    };
+
+    checkInterval = setInterval(initTurnstile, 100);
+
+    return () => {
+      clearInterval(checkInterval);
+      if (window.turnstile && widgetIdRef.current) {
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -80,6 +146,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       });
     } catch (err: any) {
       console.error(err);
+      setTurnstileToken(null);
+      if (window.turnstile && widgetIdRef.current) {
+        try {
+          window.turnstile.reset(widgetIdRef.current);
+        } catch (e) {
+          // ignore
+        }
+      }
       if (
         err.code === 'auth/invalid-credential' ||
         err.code === 'auth/user-not-found' ||
@@ -179,10 +253,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
+          {/* Turnstile Container */}
+          <div className="flex justify-center my-4 min-h-[65px]">
+            <div ref={turnstileRef} />
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-[#828200] hover:bg-[#999900] disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-xl transition duration-200 mt-4 cursor-pointer shadow-lg shadow-[#828200]/10 flex items-center justify-center gap-2"
+            disabled={loading || !turnstileToken}
+            className="w-full py-3.5 bg-[#828200] hover:bg-[#999900] disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-xl transition duration-200 mt-2 cursor-pointer shadow-lg shadow-[#828200]/10 flex items-center justify-center gap-2"
           >
             {loading ? (
               <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
