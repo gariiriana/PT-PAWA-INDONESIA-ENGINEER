@@ -1174,7 +1174,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       doc.setTextColor(120, 120, 120);
       doc.setFontSize(7.5);
       doc.setFont('Helvetica', 'normal');
-      doc.text('PT PAWA INDONESIA ENGINEER — Laporan Dokumentasi K3', margin, pageHeight - 6);
+      doc.text('PT PAWA INDONESIA ENGINEERING — Laporan Dokumentasi K3', margin, pageHeight - 6);
       doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin - 22, pageHeight - 6);
     }
 

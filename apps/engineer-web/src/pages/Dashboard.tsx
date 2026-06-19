@@ -577,10 +577,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
 
   // Helper to save report to Firestore and return the saved document
   const saveReportToFirestore = async (): Promise<ReportEngineer | null> => {
-    if (!reportTitle) {
-      showCustomAlert('Nama Pekerjaan tidak boleh kosong.', 'Peringatan');
-      return null;
-    }
+    const finalTitle = reportTitle.trim() || `${scopeOfWork}${subWork ? ' - ' + subWork : ''}` || 'Laporan Pemeliharaan';
 
     // Flatten cards structure into the standard Firestore steps array
     const steps: MaintenanceStep[] = [];
@@ -592,13 +589,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         task: card.description || 'Dokumentasi Unit',
         status: card.photoUrl ? 'completed' : 'pending',
         photoUrl: card.photoUrl || '',
-        unitName: detailUnit || 'UNIT 1',
-        notes: detailUnit || 'UNIT 1'
+        unitName: detailUnit || '',
+        notes: detailUnit || ''
       });
     });
 
     const reportData: Partial<ReportEngineer> = {
-      title: reportTitle,
+      title: finalTitle,
       templateType: selectedTemplate || 'NEUTRA',
       detailUnit: detailUnit,
       siteProject: siteProyek,
@@ -633,7 +630,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       
       const fullReport: ReportEngineer = {
         id: savedDocId!,
-        title: reportTitle,
+        title: finalTitle,
         templateType: selectedTemplate || 'NEUTRA',
         detailUnit: detailUnit,
         siteProject: siteProyek,
@@ -984,7 +981,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       docPdf.setTextColor(120, 120, 120);
       docPdf.setFontSize(7.5);
       docPdf.setFont('Helvetica', 'normal');
-      docPdf.text('PT PAWA INDONESIA ENGINEER — Laporan Dokumentasi', margin, pageHeight - 6);
+      docPdf.text('PT PAWA INDONESIA ENGINEERING — Laporan Dokumentasi', margin, pageHeight - 6);
       
       docPdf.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin - 22, pageHeight - 6);
     }
@@ -1027,13 +1024,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
           task: card.description || 'Dokumentasi Unit',
           status: card.photoUrl ? 'completed' : 'pending',
           photoUrl: card.photoUrl || '',
-          unitName: detailUnit || 'UNIT 1',
-          notes: detailUnit || 'UNIT 1'
+          unitName: detailUnit || '',
+          notes: detailUnit || ''
         });
       });
 
       const tempReport: ReportEngineer = {
-        title: reportTitle || 'Inspeksi Pemeliharaan Tanpa Nama',
+        title: reportTitle || `${scopeOfWork}${subWork ? ' - ' + subWork : ''}` || 'Inspeksi Pemeliharaan Tanpa Nama',
         templateType: selectedTemplate || 'NEUTRA',
         detailUnit: detailUnit,
         siteProject: siteProyek,
@@ -1101,9 +1098,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
           <div>
             <h1 className="text-md font-bold tracking-tight text-white flex items-center gap-1.5">
               PT PAWA INDONESIA
-              <span className="text-xs bg-[#828200] text-white font-mono px-2 py-0.5 rounded">ENGINEER</span>
+              <span className="text-xs bg-[#828200] text-white font-mono px-2 py-0.5 rounded">ENGINEERING</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">FACILITY MANAGEMENT & PEKERJAAN</p>
           </div>
         </div>
 
@@ -1192,34 +1188,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
 
             {/* Inputs Metadata Container */}
             <form onSubmit={handleSaveToArchive} className="space-y-6">
-              <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Nama Pekerjaan */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama Pekerjaan</label>
-                    <input
-                      type="text"
-                      required
-                      value={reportTitle}
-                      onChange={(e) => setReportTitle(e.target.value)}
-                      placeholder="cth. Pekerjaan Bulanan"
-                      className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
-                    />
-                  </div>
-
-                  {/* Detail Unit Pekerjaan */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Detail Unit Pekerjaan</label>
-                    <input
-                      type="text"
-                      required
-                      value={detailUnit}
-                      onChange={(e) => setDetailUnit(e.target.value)}
-                      placeholder="cth. FCU-01 / VRV-02"
-                      className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
-                    />
-                  </div>
-
+              <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Waktu Pekerjaan */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Waktu Pekerjaan</label>
@@ -1232,9 +1202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-800/40 pt-4">
                   {/* Scope of Work */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Scope of Work</label>
@@ -1282,7 +1250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                   <h3 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
                     <span className="w-1.5 h-4 bg-[#828200] rounded-sm"></span>
-                    DOKUMENTASI: {detailUnit ? `(${detailUnit})` : '(Tanpa Nama Unit)'}
+                    FOTO DOKUMENTASI
                   </h3>
 
                   {/* Image control buttons */}
@@ -1692,7 +1660,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCaptureResult}
         detailUnit={detailUnit}
-        brandTitle="PT PAWA INDONESIA ENGINEER"
+        brandTitle="PT PAWA INDONESIA ENGINEERING"
       />
 
       {/* Image Crop Modal Overlay */}
