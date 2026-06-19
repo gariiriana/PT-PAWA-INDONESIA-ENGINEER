@@ -121,8 +121,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const [reportTitle, setReportTitle] = useState('');
   const [detailUnit, setDetailUnit] = useState('');
   const [waktuMaintenance, setWaktuMaintenance] = useState(new Date().toISOString().slice(0, 10));
-  const [siteProyek, setSiteProyek] = useState('NeutraDC');
+  const [siteProyek, setSiteProyek] = useState('GAIA CGK1 DC');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('NEUTRA');
+  const [scopeOfWork, setScopeOfWork] = useState('');
+  const [subWork, setSubWork] = useState('');
+  const [spvEngineer, setSpvEngineer] = useState('');
 
   // Documentation cards state
   const [cards, setCards] = useState<CardData[]>(generateInitialCards());
@@ -148,6 +151,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   // Preview Modal
   const [previewReport, setPreviewReport] = useState<ReportEngineer | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+
+  const handleClosePreview = () => {
+    setIsPreviewModalOpen(false);
+    if (previewPdfUrl) {
+      URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
+  };
 
   // File input ref for batch upload
   const batchFileRef = useRef<HTMLInputElement | null>(null);
@@ -590,6 +602,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       templateType: selectedTemplate || 'NEUTRA',
       detailUnit: detailUnit,
       siteProject: siteProyek,
+      scopeOfWork: scopeOfWork,
+      subWork: subWork,
+      spvEngineer: spvEngineer,
       maintenanceDate: waktuMaintenance,
       engineerId: userProfile.uid,
       engineerName: userProfile.name,
@@ -622,6 +637,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         templateType: selectedTemplate || 'NEUTRA',
         detailUnit: detailUnit,
         siteProject: siteProyek,
+        scopeOfWork: scopeOfWork,
+        subWork: subWork,
+        spvEngineer: spvEngineer,
         maintenanceDate: waktuMaintenance,
         engineerId: userProfile.uid,
         engineerName: userProfile.name,
@@ -672,12 +690,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         URL.revokeObjectURL(c.localUrl);
       }
     });
+    if (previewPdfUrl) {
+      URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
     setReportId(null);
     setReportTitle('');
     setDetailUnit('');
     setWaktuMaintenance(new Date().toISOString().slice(0, 10));
-    setSiteProyek('NeutraDC');
+    setSiteProyek('GAIA CGK1 DC');
     setSelectedTemplate('NEUTRA');
+    setScopeOfWork('');
+    setSubWork('');
+    setSpvEngineer('');
     setCards(generateInitialCards());
   };
 
@@ -687,8 +712,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     setReportTitle(report.title);
     setDetailUnit(report.detailUnit || '');
     setWaktuMaintenance(report.maintenanceDate || report.createdAt.slice(0, 10));
-    setSiteProyek(report.siteProject || 'NeutraDC');
+    setSiteProyek(report.siteProject || 'GAIA CGK1 DC');
     setSelectedTemplate(report.templateType || 'NEUTRA');
+    setScopeOfWork(report.scopeOfWork || '');
+    setSubWork(report.subWork || '');
+    setSpvEngineer(report.spvEngineer || '');
 
     // Map steps directly to cards
     if (report.steps && report.steps.length > 0) {
@@ -726,79 +754,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     );
   };
 
-  // Export dynamically to PDF
-  const exportPDFDirect = async (report: ReportEngineer) => {
-    setLoading(true);
-    try {
-      const docPdf = new jsPDF('p', 'mm', 'a4');
-      const pageHeight = docPdf.internal.pageSize.height;
-      const pageWidth = docPdf.internal.pageSize.width;
-      
+  const generatePDFDocument = async (report: ReportEngineer): Promise<jsPDF> => {
+    const docPdf = new jsPDF('p', 'mm', 'a4');
+    const pageHeight = docPdf.internal.pageSize.height;
+    const pageWidth = docPdf.internal.pageSize.width;
+    
+    // We will draw a top accent colored line (Olive Gold)
+    docPdf.setFillColor(130, 130, 0); // #828200
+    docPdf.rect(0, 0, pageWidth, 3, 'F');
+    
+    const margin = 10;
+    const contentW = pageWidth - (margin * 2); // 190mm
+    
+    // 1. Gather all unique photo URLs to download
+    const photoUrlsToDownload: string[] = [];
+    report.steps.forEach(step => {
+      if (step.photoUrl && !photoUrlsToDownload.includes(step.photoUrl)) {
+        photoUrlsToDownload.push(step.photoUrl);
+      }
+    });
+
+    const downloadedImagesMap: Record<string, string> = {};
+    const logoUrl = '/logo-pawa.png';
+    const jointLogoUrl = '/logo-joint-operation.png';
+    let logoBase64: string | null = null;
+    let jointLogoBase64: string | null = null;
+
+    // 2. Download logo and all report photos concurrently in parallel
+    await Promise.all([
+      // Download logo
+      (async () => {
+        try {
+          logoBase64 = await getBase64ImageFromUrl(logoUrl);
+        } catch (e) {
+          console.error('Failed to load logo in PDF:', e);
+        }
+      })(),
+      // Download joint logo
+      (async () => {
+        try {
+          jointLogoBase64 = await getBase64ImageFromUrl(jointLogoUrl);
+        } catch (e) {
+          console.error('Failed to load joint operation logo in PDF:', e);
+        }
+      })(),
+      // Download all step photos
+      ...photoUrlsToDownload.map(async (url) => {
+        try {
+          const res = await downloadFileFromFirestore(db, url);
+          downloadedImagesMap[url] = res.dataUrl;
+        } catch (err) {
+          console.error(`Failed to download image ${url}:`, err);
+        }
+      })
+    ]);
+
+    const drawLogoTextFallback = () => {
+      docPdf.setFont('Helvetica', 'bold');
+      docPdf.setFontSize(8);
+      docPdf.setTextColor(130, 130, 0);
+      docPdf.text('PT. PAWA', margin, 18);
+      docPdf.text('ENGINEER', margin - 1, 23);
+    };
+
+    const drawPageHeader = () => {
       // We will draw a top accent colored line (Olive Gold)
       docPdf.setFillColor(130, 130, 0); // #828200
       docPdf.rect(0, 0, pageWidth, 3, 'F');
-      
-      // Let's create the styled header block starting at y = 8mm, height = 30mm
-      const headerY = 8;
-      const headerH = 30;
-      const margin = 10;
-      const contentW = pageWidth - (margin * 2); // 190mm
-      
-      // Draw outer box border for the header
-      docPdf.setDrawColor(200, 200, 200);
-      docPdf.setLineWidth(0.3);
-      docPdf.rect(margin, headerY, contentW, headerH, 'S');
-      
-      // Column 1 (Left): PT PAWA logo. Logo width is 22mm, centered in a 35mm space.
-      // We draw a vertical line inside the header box separating column 1 and 2
-      const logoColW = 35;
-      docPdf.line(margin + logoColW, headerY, margin + logoColW, headerY + headerH);
-      
-      // 1. Gather all unique photo URLs to download
-      const photoUrlsToDownload: string[] = [];
-      report.steps.forEach(step => {
-        if (step.photoUrl && !photoUrlsToDownload.includes(step.photoUrl)) {
-          photoUrlsToDownload.push(step.photoUrl);
-        }
-      });
 
-      const downloadedImagesMap: Record<string, string> = {};
-      const logoUrl = '/logo-pawa.png';
-      let logoBase64: string | null = null;
-
-      // 2. Download logo and all report photos concurrently in parallel
-      await Promise.all([
-        // Download logo
-        (async () => {
-          try {
-            logoBase64 = await getBase64ImageFromUrl(logoUrl);
-          } catch (e) {
-            console.error('Failed to load logo in PDF:', e);
-          }
-        })(),
-        // Download all step photos
-        ...photoUrlsToDownload.map(async (url) => {
-          try {
-            const res = await downloadFileFromFirestore(db, url);
-            downloadedImagesMap[url] = res.dataUrl;
-          } catch (err) {
-            console.error(`Failed to download image ${url}:`, err);
-          }
-        })
-      ]);
-
-      const drawLogoTextFallback = () => {
-        docPdf.setFont('Helvetica', 'bold');
-        docPdf.setFontSize(8);
-        docPdf.setTextColor(130, 130, 0);
-        docPdf.text('PT. PAWA', margin + 8, headerY + 12);
-        docPdf.text('ENGINEER', margin + 7, headerY + 17);
-      };
-
-      // Draw PT PAWA logo
+      // Draw PT PAWA logo (Left)
       if (logoBase64) {
         try {
-          docPdf.addImage(logoBase64, 'PNG', margin + 6, headerY + 4, 22, 22);
+          docPdf.addImage(logoBase64, 'PNG', margin, 10, 18, 18);
         } catch (e) {
           console.error('Failed to add logo image to PDF:', e);
           drawLogoTextFallback();
@@ -806,148 +833,175 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       } else {
         drawLogoTextFallback();
       }
-      
-      // Column 2 (Right/Center-right): Text metadata.
-      const textX = margin + logoColW + 6;
+
+      // Draw DAILY ACTIVITY Title (Center)
       docPdf.setTextColor(0, 0, 0);
       docPdf.setFont('Helvetica', 'bold');
-      docPdf.setFontSize(16);
-      docPdf.text('LAPORAN MAINTENANCE', textX, headerY + 8);
+      docPdf.setFontSize(15);
+      docPdf.text('DAILY ACTIVITY', pageWidth / 2, 20, { align: 'center' });
+
+      // Draw TOTAL and ACCESSTECH joint logo (Right)
+      if (jointLogoBase64) {
+        try {
+          docPdf.addImage(jointLogoBase64, 'PNG', pageWidth - margin - 45, 10, 45, 23);
+        } catch (e) {
+          console.error('Failed to add joint logo to PDF:', e);
+        }
+      }
       
+      // Draw first horizontal line below logos
+      docPdf.setDrawColor(0, 0, 0);
+      docPdf.setLineWidth(0.4);
+      docPdf.line(margin, 36, pageWidth - margin, 36);
+
+      // Metadata coordinates
+      const col1X = margin + 1;
+      const col2X = pageWidth / 2 + 15;
+
+      // Draw Metadata
       docPdf.setFont('Helvetica', 'bold');
-      docPdf.setFontSize(11);
-      docPdf.text(`DOKUMENTASI PM: ${report.title.toUpperCase()}`, textX, headerY + 14);
+      docPdf.setFontSize(8.5);
+      docPdf.setTextColor(0, 0, 0);
+      
+      // Left side labels
+      docPdf.text('Project Name', col1X, 41);
+      docPdf.text('Scope Of Work', col1X, 46);
+      docPdf.text('Sub Work', col1X, 51);
+      
+      docPdf.text(':', col1X + 26, 41);
+      docPdf.text(':', col1X + 26, 46);
+      docPdf.text(':', col1X + 26, 51);
       
       docPdf.setFont('Helvetica', 'normal');
-      docPdf.setFontSize(10);
-      docPdf.setTextColor(100, 100, 100);
-      docPdf.text(`Unit: ${report.detailUnit || '-'}`, textX, headerY + 20);
-      docPdf.text(`Tanggal Maintenance: ${report.maintenanceDate || report.createdAt.slice(0, 10)}`, textX, headerY + 25);
-      
-      let currentY = headerY + headerH + 8; // start drawing below the header block
+      docPdf.text(report.siteProject || 'GAIA CGK1 DATA CENTER', col1X + 29, 41);
+      docPdf.text(report.scopeOfWork || '-', col1X + 29, 46);
+      docPdf.text(report.subWork || '-', col1X + 29, 51);
 
+      // Right side labels
       docPdf.setFont('Helvetica', 'bold');
-      docPdf.setFontSize(12);
-      docPdf.setTextColor(130, 130, 0); // Olive Gold Color
-      const displayUnitName = report.detailUnit ? report.detailUnit.toUpperCase() : 'DOKUMENTASI';
-      docPdf.text(`DOKUMENTASI: ${displayUnitName}`, margin, currentY);
+      docPdf.text('Date', col2X, 41);
+      docPdf.text('SPV / Eng', col2X, 46);
       
-      // Draw horizontal line below title
-      docPdf.setDrawColor(130, 130, 0);
+      docPdf.text(':', col2X + 18, 41);
+      docPdf.text(':', col2X + 18, 46);
+      
+      docPdf.setFont('Helvetica', 'normal');
+      docPdf.text(report.maintenanceDate || report.createdAt.slice(0, 10), col2X + 21, 41);
+      docPdf.text(report.spvEngineer || '-', col2X + 21, 46);
+
+      // Draw second horizontal line below metadata
+      docPdf.setDrawColor(0, 0, 0);
       docPdf.setLineWidth(0.4);
-      docPdf.line(margin, currentY + 1.5, pageWidth - margin, currentY + 1.5);
+      docPdf.line(margin, 54, pageWidth - margin, 54);
+    };
+
+    // Draw first page header
+    drawPageHeader();
+    
+    let currentY = 60; // start drawing cards below the metadata block
+
+    // Let's draw the grid cards in 3 columns.
+    let px = margin;
+    const cardW = 58;
+    const cardH = 76; // taller card to fit larger text and images nicely
+    const gap = 8;
+    
+    for (const step of report.steps) {
+      // Check if we need to move to the next page
+      if (currentY + cardH > pageHeight - 15) {
+        docPdf.addPage();
+        drawPageHeader();
+        currentY = 60;
+        px = margin;
+      }
       
-      currentY += 6;
+      // Draw card container box in PT PAWA brand colors
+      docPdf.setDrawColor(130, 130, 0); // Olive Gold border
+      docPdf.setLineWidth(0.3);
+      docPdf.setFillColor(255, 255, 255);
+      docPdf.rect(px, currentY, cardW, cardH, 'F');
+      docPdf.rect(px, currentY, cardW, cardH, 'S');
       
-      // Let's draw the grid cards.
-      let px = margin;
-      const cardW = 43.5;
-      const cardH = 55; // slightly taller card to fit larger text nicely
-      const gap = 5;
-      
-      for (const step of report.steps) {
-        // Check if we need to move to the next page
-        if (currentY + cardH > pageHeight - 15) {
-          docPdf.addPage();
-          // Top accent line on new pages
-          docPdf.setFillColor(130, 130, 0);
-          docPdf.rect(0, 0, pageWidth, 3, 'F');
-          
-          // Re-draw title on new page for continuation
-          currentY = 15;
-          docPdf.setFont('Helvetica', 'bold');
-          docPdf.setFontSize(12);
-          docPdf.setTextColor(130, 130, 0);
-          docPdf.text(`DOKUMENTASI: ${displayUnitName} (Lanjutan)`, margin, currentY);
-          docPdf.setDrawColor(130, 130, 0);
-          docPdf.setLineWidth(0.4);
-          docPdf.line(margin, currentY + 1.5, pageWidth - margin, currentY + 1.5);
-          currentY += 6;
-          px = margin;
-        }
-        
-        // Draw card container box
-        docPdf.setDrawColor(220, 220, 220);
-        docPdf.setLineWidth(0.2);
-        docPdf.setFillColor(255, 255, 255);
-        docPdf.rect(px, currentY, cardW, cardH, 'F');
-        docPdf.rect(px, currentY, cardW, cardH, 'S');
-        
-        // Draw image
-        if (step.photoUrl && downloadedImagesMap[step.photoUrl]) {
-          try {
-            const dataUrl = downloadedImagesMap[step.photoUrl];
-            docPdf.addImage(dataUrl, 'JPEG', px + 1.5, currentY + 1.5, cardW - 3, cardH - 17);
-          } catch (err) {
-            console.error('Error rendering image in PDF:', err);
-            docPdf.setFillColor(240, 240, 240);
-            docPdf.rect(px + 1.5, currentY + 1.5, cardW - 3, cardH - 17, 'F');
-            docPdf.setTextColor(200, 50, 50);
-            docPdf.setFontSize(8);
-            docPdf.text('[Foto Gagal Dimuat]', px + cardW/2 - 13, currentY + (cardH - 17)/2 + 1);
-          }
-        } else {
-          // Draw placeholder box
-          docPdf.setFillColor(245, 245, 245);
-          docPdf.rect(px + 1.5, currentY + 1.5, cardW - 3, cardH - 17, 'F');
-          docPdf.setTextColor(150, 150, 150);
+      // Draw image (centered, with 3mm margin)
+      if (step.photoUrl && downloadedImagesMap[step.photoUrl]) {
+        try {
+          const dataUrl = downloadedImagesMap[step.photoUrl];
+          docPdf.addImage(dataUrl, 'JPEG', px + 3, currentY + 3, cardW - 6, cardH - 17);
+        } catch (err) {
+          console.error('Error rendering image in PDF:', err);
+          docPdf.setFillColor(240, 240, 240);
+          docPdf.rect(px + 3, currentY + 3, cardW - 6, cardH - 17, 'F');
+          docPdf.setTextColor(200, 50, 50);
           docPdf.setFontSize(8);
-          docPdf.setFont('Helvetica', 'normal');
-          docPdf.text('TANPA FOTO', px + cardW/2 - 9, currentY + (cardH - 17)/2 + 1);
+          docPdf.text('[Foto Gagal Dimuat]', px + cardW/2 - 13, currentY + (cardH - 17)/2 + 1);
         }
-        
-        // Description details area below the image
-        const descY = currentY + cardH - 12;
-        
-        // Left accent vertical bar (Olive Gold)
-        docPdf.setFillColor(130, 130, 0); // #828200
-        docPdf.rect(px + 2, descY, 0.7, 9, 'F');
-        
-        // Description text
-        docPdf.setTextColor(50, 50, 50);
-        docPdf.setFont('Helvetica', 'normal');
-        docPdf.setFontSize(8.5);
-        const wrappedDesc = docPdf.splitTextToSize(step.task, cardW - 5.5);
-        docPdf.text(wrappedDesc, px + 3.7, descY + 3); // line height adjust
-        
-        // Move to next column
-        px += cardW + gap;
-        if (px + cardW > pageWidth - margin + 1) {
-          // Wrap to next row
-          px = margin;
-          currentY += cardH + gap;
-        }
-      }
-      
-      // If some elements were drawn on the last row, add spacing
-      if (px !== margin) {
-        currentY += cardH + 8;
       } else {
-        currentY += 8;
-      }
-      // Page numbering footer and general footer on all pages
-      const totalPages = docPdf.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        docPdf.setPage(i);
-        
-        // Add footer text at y = 288
-        docPdf.setDrawColor(230, 230, 230);
-        docPdf.setLineWidth(0.2);
-        docPdf.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
-        
-        docPdf.setTextColor(120, 120, 120);
-        docPdf.setFontSize(7.5);
+        // Draw placeholder box
+        docPdf.setFillColor(245, 245, 245);
+        docPdf.rect(px + 3, currentY + 3, cardW - 6, cardH - 17, 'F');
+        docPdf.setTextColor(150, 150, 150);
+        docPdf.setFontSize(8);
         docPdf.setFont('Helvetica', 'normal');
-        docPdf.text('PT PAWA INDONESIA ENGINEER — Laporan Maintenance', margin, pageHeight - 6);
-        
-        docPdf.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin - 22, pageHeight - 6);
+        docPdf.text('TANPA FOTO', px + cardW/2 - 9, currentY + (cardH - 18)/2 + 1);
       }
       
-      // Clean up Object URLs to prevent memory leak
-      Object.values(downloadedImagesMap).forEach(url => {
-        URL.revokeObjectURL(url);
-      });
+      // Description details area below the image
+      const descY = currentY + cardH - 11;
       
+      // Description text
+      docPdf.setTextColor(50, 50, 50);
+      docPdf.setFont('Helvetica', 'normal');
+      docPdf.setFontSize(8.5);
+      const wrappedDesc = docPdf.splitTextToSize(step.task, cardW - 8);
+      docPdf.text(wrappedDesc, px + 4, descY + 2.5); // line height adjust
+      
+      // Move to next column
+      px += cardW + gap;
+      if (px + cardW > pageWidth - margin + 1) {
+        // Wrap to next row
+        px = margin;
+        currentY += cardH + gap;
+      }
+    }
+    
+    // If some elements were drawn on the last row, add spacing
+    if (px !== margin) {
+      currentY += cardH + 8;
+    } else {
+      currentY += 8;
+    }
+    
+    // Page numbering footer and general footer on all pages
+    const totalPages = docPdf.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      docPdf.setPage(i);
+      
+      // Add footer text at y = 288
+      docPdf.setDrawColor(230, 230, 230);
+      docPdf.setLineWidth(0.2);
+      docPdf.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+      
+      docPdf.setTextColor(120, 120, 120);
+      docPdf.setFontSize(7.5);
+      docPdf.setFont('Helvetica', 'normal');
+      docPdf.text('PT PAWA INDONESIA ENGINEER — Laporan Dokumentasi', margin, pageHeight - 6);
+      
+      docPdf.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin - 22, pageHeight - 6);
+    }
+    
+    // Clean up Object URLs to prevent memory leak
+    Object.values(downloadedImagesMap).forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+
+    return docPdf;
+  };
+
+  // Export dynamically to PDF
+  const exportPDFDirect = async (report: ReportEngineer) => {
+    setLoading(true);
+    try {
+      const docPdf = await generatePDFDocument(report);
       const cleanTitle = report.title.trim().replace(/\s+/g, '_');
       const cleanUnit = report.detailUnit ? report.detailUnit.trim().replace(/\s+/g, '_') : '';
       const filename = cleanUnit ? `${cleanTitle}_${cleanUnit}.pdf` : `${cleanTitle}.pdf`;
@@ -961,37 +1015,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   };
 
   // Preview layout in modal
-  const handleOpenPreview = () => {
-    // Construct fake temporary report object to send to preview
-    const steps: MaintenanceStep[] = [];
-    let stepCounter = 1;
-    cards.forEach((card) => {
-      steps.push({
-        stepNumber: stepCounter++,
-        task: card.description || 'Dokumentasi Unit',
-        status: card.photoUrl ? 'completed' : 'pending',
-        photoUrl: card.photoUrl || '',
-        unitName: detailUnit || 'UNIT 1',
-        notes: detailUnit || 'UNIT 1'
+  const handleOpenPreview = async () => {
+    setLoading(true);
+    try {
+      // Construct fake temporary report object to send to preview
+      const steps: MaintenanceStep[] = [];
+      let stepCounter = 1;
+      cards.forEach((card) => {
+        steps.push({
+          stepNumber: stepCounter++,
+          task: card.description || 'Dokumentasi Unit',
+          status: card.photoUrl ? 'completed' : 'pending',
+          photoUrl: card.photoUrl || '',
+          unitName: detailUnit || 'UNIT 1',
+          notes: detailUnit || 'UNIT 1'
+        });
       });
-    });
 
-    const tempReport: ReportEngineer = {
-      title: reportTitle || 'Inspeksi Pemeliharaan Tanpa Nama',
-      templateType: selectedTemplate || 'NEUTRA',
-      detailUnit: detailUnit,
-      siteProject: siteProyek,
-      maintenanceDate: waktuMaintenance,
-      engineerId: userProfile.uid,
-      engineerName: userProfile.name,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'submitted',
-      steps: steps,
-    };
+      const tempReport: ReportEngineer = {
+        title: reportTitle || 'Inspeksi Pemeliharaan Tanpa Nama',
+        templateType: selectedTemplate || 'NEUTRA',
+        detailUnit: detailUnit,
+        siteProject: siteProyek,
+        scopeOfWork: scopeOfWork,
+        subWork: subWork,
+        spvEngineer: spvEngineer,
+        maintenanceDate: waktuMaintenance,
+        engineerId: userProfile.uid,
+        engineerName: userProfile.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'submitted',
+        steps: steps,
+      };
 
-    setPreviewReport(tempReport);
-    setIsPreviewModalOpen(true);
+      const docPdf = await generatePDFDocument(tempReport);
+      const pdfBlob = docPdf.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      
+      if (previewPdfUrl) {
+        URL.revokeObjectURL(previewPdfUrl);
+      }
+
+      setPreviewPdfUrl(url);
+      setPreviewReport(tempReport);
+      setIsPreviewModalOpen(true);
+    } catch (err) {
+      console.error('PDF preview generation failed:', err);
+      showCustomAlert('Gagal membuat preview laporan PDF.', 'Pratinjau Gagal');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Filtered reports for archive
@@ -1118,7 +1192,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
 
             {/* Inputs Metadata Container */}
             <form onSubmit={handleSaveToArchive} className="space-y-6">
-              <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30">
+              <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Nama Maintenance */}
                   <div>
@@ -1156,6 +1230,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       value={waktuMaintenance}
                       onChange={(e) => setWaktuMaintenance(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-800/40 pt-4">
+                  {/* Scope of Work */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Scope of Work</label>
+                    <input
+                      type="text"
+                      required
+                      value={scopeOfWork}
+                      onChange={(e) => setScopeOfWork(e.target.value)}
+                      placeholder="cth. Electrical / Mechanical / Cooling"
+                      className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+                    />
+                  </div>
+
+                  {/* Sub Work */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sub Work</label>
+                    <input
+                      type="text"
+                      required
+                      value={subWork}
+                      onChange={(e) => setSubWork(e.target.value)}
+                      placeholder="cth. Cleaning & Testing"
+                      className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
+                    />
+                  </div>
+
+                  {/* SPV / Eng */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">SPV / Eng</label>
+                    <input
+                      type="text"
+                      required
+                      value={spvEngineer}
+                      onChange={(e) => setSpvEngineer(e.target.value)}
+                      placeholder="cth. Supervisor / Engineer"
+                      className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
                 </div>
@@ -1636,7 +1751,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       {/* ----------------- PREVIEW MODAL ----------------- */}
       {isPreviewModalOpen && previewReport && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#070b13] border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+          <div className="bg-[#070b13] border border-slate-800 rounded-2xl w-full max-w-4xl h-[85vh] overflow-hidden flex flex-col shadow-2xl">
             {/* Modal Header */}
             <div className="p-4 bg-slate-950 border-b border-slate-900 flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1644,7 +1759,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                 PREVIEW REPORT LAYOUT
               </h3>
               <button
-                onClick={() => setIsPreviewModalOpen(false)}
+                onClick={handleClosePreview}
                 title="Tutup Preview"
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-900 transition"
               >
@@ -1653,93 +1768,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Document Header in PDF layout */}
-              <div className="bg-slate-900 border border-slate-850 p-6 rounded-xl space-y-4 text-slate-300">
-                <div className="border-b border-slate-800 pb-4 flex flex-col md:flex-row md:justify-between gap-4">
-                  <div>
-                    <h2 className="text-base font-extrabold text-white">PT. PAWA INDONESIA ENGINEERING</h2>
-                    <p className="text-[10px] text-slate-500">Laporan Pemeliharaan Teknis / Engineering Report</p>
-                  </div>
-                  <div className="text-right text-[10px] text-slate-500">
-                    <p>ENGINEER REPORT PREVIEW</p>
-                  </div>
+            <div className="flex-1 p-0 relative bg-slate-950">
+              {previewPdfUrl ? (
+                <iframe
+                  src={`${previewPdfUrl}#view=FitH`}
+                  title="PDF Preview"
+                  className="w-full h-full border-none bg-slate-950"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs space-y-3">
+                  <div className="w-8 h-8 border-2 border-[#828200] border-t-transparent rounded-full animate-spin"></div>
+                  <p>Membuat preview PDF...</p>
                 </div>
-
-                {/* Metadata Details */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">NAMA MAINTENANCE</p>
-                    <p className="text-white font-sans mt-0.5">{previewReport.title}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">SITUS / LOKASI</p>
-                    <p className="text-white font-sans mt-0.5">{previewReport.siteProject || 'NeutraDC'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">WAKTU MAINTENANCE</p>
-                    <p className="text-white font-sans mt-0.5">{previewReport.maintenanceDate || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">DETAIL UNIT</p>
-                    <p className="text-white font-sans mt-0.5">{previewReport.detailUnit || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Steps/Tasks List */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Langkah Pekerjaan & Dokumentasi</h4>
-                
-                {/* Re-group steps into units */}
-                {(() => {
-                  const groupedPreview: Record<string, MaintenanceStep[]> = {};
-                  previewReport.steps.forEach(step => {
-                    const uName = step.unitName || 'UNIT 1';
-                    if (!groupedPreview[uName]) groupedPreview[uName] = [];
-                    groupedPreview[uName].push(step);
-                  });
-
-                  return Object.entries(groupedPreview).map(([uName, stepList]) => (
-                    <div key={uName} className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
-                      <h5 className="text-xs font-extrabold text-[#999900] border-b border-slate-900 pb-2">{uName}</h5>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {stepList.map((step, idx) => (
-                          <div key={idx} className="bg-slate-900/40 border border-slate-900 p-3 rounded-lg flex gap-3 items-center">
-                            {step.photoUrl ? (
-                              <FirestoreImage
-                                db={db}
-                                attachmentId={step.photoUrl}
-                                className="w-14 h-14 object-cover rounded-lg border border-slate-800 flex-shrink-0 cursor-zoom-in hover:opacity-80 transition"
-                                onClick={() => handlePreviewCardPhoto(step.photoUrl)}
-                              />
-                            ) : (
-                              <div className="w-14 h-14 bg-slate-950 border border-slate-900 rounded-lg flex items-center justify-center text-[8px] text-slate-700 flex-shrink-0 font-bold">
-                                NO FOTO
-                              </div>
-                            )}
-                            <div className="space-y-1 overflow-hidden">
-                              <p className="text-[9px] font-bold text-slate-500">DOC #{idx + 1}</p>
-                              <p className="text-xs text-slate-200 truncate">{step.task || 'Tanpa deskripsi'}</p>
-                              <span className="text-[8px] bg-[#828200]/10 text-[#999900] border border-[#828200]/25 font-bold px-1 rounded uppercase">
-                                {step.status === 'completed' ? 'TERPASANG' : 'PENDING'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div className="p-4 bg-slate-950 border-t border-slate-900 flex justify-end gap-2.5">
               <button
                 type="button"
-                onClick={() => setIsPreviewModalOpen(false)}
+                onClick={handleClosePreview}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 rounded-xl text-xs transition"
               >
                 Tutup
@@ -1747,7 +1795,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
               <button
                 type="button"
                 onClick={() => {
-                  setIsPreviewModalOpen(false);
+                  handleClosePreview();
                   handleSaveAndExportPDF();
                 }}
                 className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs flex items-center gap-1.5 transition"

@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './config/firebase';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import HseDashboard from './pages/HseDashboard';
 import './index.css';
 
 const App = () => {
@@ -64,6 +65,15 @@ const App = () => {
     return (
       <Login
         onLoginSuccess={(profile: { uid: string; email: string; name: string; role: string }) => setUserProfile(profile)}
+      />
+    );
+  }
+
+  if (userProfile.role === 'hse') {
+    return (
+      <HseDashboard
+        userProfile={userProfile}
+        onLogout={() => setUserProfile(null)}
       />
     );
   }

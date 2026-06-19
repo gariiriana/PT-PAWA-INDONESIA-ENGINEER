@@ -67,9 +67,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const role = userData.role;
 
       // Validate allowed roles
-      if (role !== 'engineer' && role !== 'site_manager' && role !== 'admin') {
+      if (role !== 'engineer' && role !== 'site_manager' && role !== 'admin' && role !== 'hse') {
         await signOut(auth);
-        throw new Error('Akses ditolak. Akun Anda tidak memiliki peran Engineer/Manager.');
+        throw new Error('Akses ditolak. Akun Anda tidak memiliki peran yang valid.');
       }
 
       onLoginSuccess({

@@ -41,6 +41,9 @@ export interface ReportEngineer {
   detailUnit?: string;
   siteProject?: string;
   maintenanceDate?: string;
+  scopeOfWork?: string;
+  subWork?: string;
+  spvEngineer?: string;
 
   // Corrective Maintenance fields
   isCorrective?: boolean;
@@ -84,6 +87,15 @@ export interface SafetyInspection {
   checklist: SafetyCheckItem[];
   overallStatus: 'Safe' | 'Attention Required' | 'Unsafe';
   comments?: string;
+  
+  // K3 Metadata fields
+  inspectorK3?: string;
+  aktivitas?: string;
+  lokasi?: string;
+  personil?: string;
+  pic?: string;
+  anggota?: string;
+  steps?: MaintenanceStep[];
 }
 
 export interface PermitToWork {

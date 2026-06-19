@@ -31,6 +31,12 @@ type ReportEngineer struct {
 	RectificationPlan   string            `json:"rectificationPlan,omitempty" firestore:"rectificationPlan,omitempty"`
 	PhotoBeforeURL      string            `json:"photoBeforeUrl,omitempty" firestore:"photoBeforeUrl,omitempty"`
 	PhotoAfterURL       string            `json:"photoAfterUrl,omitempty" firestore:"photoAfterUrl,omitempty"`
+	DetailUnit          string            `json:"detailUnit,omitempty" firestore:"detailUnit,omitempty"`
+	SiteProject         string            `json:"siteProject,omitempty" firestore:"siteProject,omitempty"`
+	MaintenanceDate     string            `json:"maintenanceDate,omitempty" firestore:"maintenanceDate,omitempty"`
+	ScopeOfWork         string            `json:"scopeOfWork,omitempty" firestore:"scopeOfWork,omitempty"`
+	SubWork             string            `json:"subWork,omitempty" firestore:"subWork,omitempty"`
+	SPVEngineer         string            `json:"spvEngineer,omitempty" firestore:"spvEngineer,omitempty"`
 }
 
 type ReportHSE struct {

@@ -56,6 +56,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   const [overallStatus, setOverallStatus] = useState<'Safe' | 'Attention Required' | 'Unsafe'>('Safe');
   const [comments, setComments] = useState('');
 
+  // K3 Metadata fields for Safety Inspection
+  const [inspectorK3, setInspectorK3] = useState(userProfile?.name || '');
+  const [aktivitas, setAktivitas] = useState('');
+  const [lokasi, setLokasi] = useState('');
+  const [personil, setPersonil] = useState('');
+  const [pic, setPic] = useState('');
+  const [anggota, setAnggota] = useState('');
+
   // Archive Search states
   const [searchYear, setSearchYear] = useState('2026');
   const [searchMonth, setSearchMonth] = useState('All');
@@ -256,12 +264,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
         checklist,
         overallStatus,
         comments,
+        inspectorK3: inspectorK3 || userProfile.name,
+        aktivitas: aktivitas,
+        lokasi: lokasi,
+        personil: personil,
+        pic: pic,
+        anggota: anggota,
       };
 
       await addDoc(collection(db, 'safety_inspections'), newInspection);
       setInspectionTitle('');
       setComments('');
       setOverallStatus('Safe');
+      setInspectorK3(userProfile.name);
+      setAktivitas('');
+      setLokasi('');
+      setPersonil('');
+      setPic('');
+      setAnggota('');
       
       // Reset checklist choices
       const resetList = checklist.map(item => ({ ...item, checked: true, notes: '' }));
@@ -351,6 +371,354 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     doc.save(`PT_PAWA_HSE_Report_${finding.id || 'export'}.pdf`);
   };
 
+  const getBase64ImageFromUrl = async (url: string): Promise<string> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const blob = await res.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
+
+  const exportInspectionPDF = async (inspection: SafetyInspection) => {
+    setLoading(true);
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageHeight = doc.internal.pageSize.height;
+      const pageWidth = doc.internal.pageSize.width;
+      
+      const margin = 10;
+      const contentW = pageWidth - (margin * 2);
+
+      const logoUrl = '/logo-pawa.png';
+      const jointLogoUrl = '/logo-joint-operation.png';
+      let logoBase64: string | null = null;
+      let jointLogoBase64: string | null = null;
+
+      try {
+        logoBase64 = await getBase64ImageFromUrl(logoUrl);
+      } catch (e) {
+        console.error('Failed to load logo in PDF:', e);
+      }
+
+      try {
+        jointLogoBase64 = await getBase64ImageFromUrl(jointLogoUrl);
+      } catch (e) {
+        console.error('Failed to load joint operation logo in PDF:', e);
+      }
+
+      const drawLogoTextFallback = () => {
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(130, 130, 0);
+        doc.text('PT. PAWA', margin, 18);
+        doc.text('ENGINEER', margin - 1, 23);
+      };
+
+      const drawPageHeader = (pageNumber: number, totalPagesPlaceholder: string) => {
+        doc.setFillColor(130, 130, 0);
+        doc.rect(0, 0, pageWidth, 3, 'F');
+
+        if (logoBase64) {
+          try {
+            doc.addImage(logoBase64, 'PNG', margin, 8, 16, 16);
+          } catch (e) {
+            drawLogoTextFallback();
+          }
+        } else {
+          drawLogoTextFallback();
+        }
+
+        if (jointLogoBase64) {
+          try {
+            doc.addImage(jointLogoBase64, 'PNG', pageWidth - margin - 40, 8, 40, 20);
+          } catch (e) {
+            console.error('Failed to add joint logo:', e);
+          }
+        }
+
+        doc.setTextColor(130, 130, 0);
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.text('HSE INSPECTION REPORT', pageWidth / 2, 14, { align: 'center' });
+
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text('Safety, Health & Equipment Documentation System', pageWidth / 2, 18, { align: 'center' });
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(130, 130, 0);
+        const inspectionDate = new Date(inspection.createdAt).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+        doc.text(`Tanggal: ${inspectionDate}`, pageWidth / 2, 23, { align: 'center' });
+
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(margin, 28, pageWidth - margin, 28);
+      };
+
+      drawPageHeader(1, '1');
+
+      const metaY = 32;
+      const metaH = 34;
+      doc.setFillColor(245, 247, 250);
+      doc.rect(margin, metaY, contentW, metaH, 'F');
+      
+      doc.setDrawColor(220, 225, 230);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, metaY, contentW, metaH, 'S');
+
+      const col1X = margin + 5;
+      const col2X = pageWidth / 2 + 10;
+      
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(80, 80, 80);
+
+      doc.text('Inspector K3', col1X, metaY + 6);
+      doc.text('Aktivitas', col1X, metaY + 14);
+      doc.text('Lokasi', col1X, metaY + 22);
+      doc.text('Personil', col1X, metaY + 29);
+
+      doc.text(':', col1X + 24, metaY + 6);
+      doc.text(':', col1X + 24, metaY + 14);
+      doc.text(':', col1X + 24, metaY + 22);
+      doc.text(':', col1X + 24, metaY + 29);
+
+      doc.text('PIC', col2X, metaY + 6);
+      doc.text('Anggota', col2X, metaY + 14);
+      doc.text('Overall Status', col2X, metaY + 22);
+
+      doc.text(':', col2X + 24, metaY + 6);
+      doc.text(':', col2X + 24, metaY + 14);
+      doc.text(':', col2X + 24, metaY + 22);
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      
+      const wrapText = (text: string, maxWidth: number) => {
+        return doc.splitTextToSize(text || '-', maxWidth);
+      };
+
+      doc.text(wrapText(inspection.inspectorK3 || inspection.hseName, 60), col1X + 27, metaY + 6);
+      doc.text(wrapText(inspection.aktivitas || '-', 60), col1X + 27, metaY + 14);
+      doc.text(wrapText(inspection.lokasi || '-', 60), col1X + 27, metaY + 22);
+      doc.text(wrapText(inspection.personil || '-', 60), col1X + 27, metaY + 29);
+
+      doc.text(wrapText(inspection.pic || '-', 60), col2X + 27, metaY + 6);
+      doc.text(wrapText(inspection.anggota || '-', 60), col2X + 27, metaY + 14);
+      
+      const statusText = inspection.overallStatus || 'Safe';
+      if (statusText === 'Safe') {
+        doc.setTextColor(16, 120, 60);
+      } else if (statusText === 'Attention Required') {
+        doc.setTextColor(200, 120, 0);
+      } else {
+        doc.setTextColor(200, 30, 30);
+      }
+      doc.text(statusText, col2X + 27, metaY + 22);
+
+      let currentY = metaY + metaH + 6;
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(130, 130, 0);
+      doc.text('DAFTAR POIN PEMERIKSAAN K3', margin, currentY);
+      
+      currentY += 3.5;
+      
+      const colWidths = [10, 30, 95, 25, 30];
+      const colLabels = ['No', 'Kategori', 'Poin Pemeriksaan', 'Status', 'Catatan'];
+      
+      const drawTableHeader = (yPos: number) => {
+        doc.setFillColor(130, 130, 0);
+        doc.rect(margin, yPos, contentW, 7, 'F');
+        
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        
+        let cx = margin;
+        for (let idx = 0; idx < colLabels.length; idx++) {
+          let alignOpt: 'left' | 'center' = (idx === 0 || idx === 3) ? 'center' : 'left';
+          let xOffset = alignOpt === 'center' ? colWidths[idx] / 2 : 2.5;
+          doc.text(colLabels[idx], cx + xOffset, yPos + 4.8, { align: alignOpt });
+          cx += colWidths[idx];
+        }
+      };
+
+      drawTableHeader(currentY);
+      currentY += 7;
+
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      
+      let itemIndex = 1;
+      for (const item of inspection.checklist) {
+        const questionLines = doc.splitTextToSize(item.question, colWidths[2] - 5);
+        const notesLines = doc.splitTextToSize(item.notes || '-', colWidths[4] - 5);
+        
+        const rowHeight = Math.max(
+          5, 
+          questionLines.length * 4.2 + 2, 
+          notesLines.length * 4.2 + 2
+        );
+
+        if (currentY + rowHeight > pageHeight - 20) {
+          doc.addPage();
+          drawPageHeader(doc.getNumberOfPages(), 'Total');
+          currentY = 32;
+          drawTableHeader(currentY);
+          currentY += 7;
+        }
+
+        if (itemIndex % 2 === 0) {
+          doc.setFillColor(250, 251, 253);
+          doc.rect(margin, currentY, contentW, rowHeight, 'F');
+        }
+
+        doc.setDrawColor(225, 225, 225);
+        doc.setLineWidth(0.15);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('Helvetica', 'normal');
+        
+        doc.text(itemIndex.toString(), margin + colWidths[0]/2, currentY + rowHeight/2 + 1, { align: 'center' });
+        
+        doc.setFont('Helvetica', 'bold');
+        doc.setTextColor(80, 80, 80);
+        doc.text(item.category, margin + colWidths[0] + 2.5, currentY + 4);
+        doc.setFont('Helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        doc.text(questionLines, margin + colWidths[0] + colWidths[1] + 2.5, currentY + 4);
+
+        const statusVal = item.checked ? 'TERPENUHI' : 'TDK TERPENUHI';
+        if (item.checked) {
+          doc.setTextColor(16, 120, 60);
+          doc.setFont('Helvetica', 'bold');
+        } else {
+          doc.setTextColor(200, 30, 30);
+          doc.setFont('Helvetica', 'bold');
+        }
+        doc.text(statusVal, margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]/2, currentY + rowHeight/2 + 1, { align: 'center' });
+        doc.setFont('Helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        doc.text(notesLines, margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2.5, currentY + 4);
+
+        doc.setDrawColor(210, 210, 210);
+        doc.line(margin, currentY + rowHeight, margin + contentW, currentY + rowHeight);
+
+        currentY += rowHeight;
+        itemIndex++;
+      }
+
+      currentY += 6;
+      if (currentY + 25 > pageHeight - 20) {
+        doc.addPage();
+        drawPageHeader(doc.getNumberOfPages(), 'Total');
+        currentY = 32;
+      }
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(130, 130, 0);
+      doc.text('KOMENTAR / REKOMENDASI PERBAIKAN:', margin, currentY);
+
+      currentY += 4;
+      doc.setFillColor(253, 253, 250);
+      doc.setDrawColor(230, 230, 220);
+      
+      const commentsText = inspection.comments || 'Tidak ada komentar tambahan.';
+      const commentsLines = doc.splitTextToSize(commentsText, contentW - 8);
+      const commentsH = Math.max(12, commentsLines.length * 4.2 + 6);
+      
+      doc.rect(margin, currentY, contentW, commentsH, 'F');
+      doc.rect(margin, currentY, contentW, commentsH, 'S');
+
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(50, 50, 50);
+      doc.text(commentsLines, margin + 4, currentY + 5);
+
+      currentY += commentsH + 10;
+      if (currentY + 30 > pageHeight - 15) {
+        doc.addPage();
+        drawPageHeader(doc.getNumberOfPages(), 'Total');
+        currentY = 32;
+      }
+
+      const sigW = 60;
+      const sigX1 = margin + 10;
+      const sigX2 = pageWidth - margin - sigW - 10;
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(80, 80, 80);
+      
+      doc.text('Dibuat Oleh,', sigX1 + sigW/2, currentY, { align: 'center' });
+      doc.text('Inspector K3', sigX1 + sigW/2, currentY + 4, { align: 'center' });
+      
+      doc.setDrawColor(150, 150, 150);
+      doc.line(sigX1, currentY + 22, sigX1 + sigW, currentY + 22);
+      
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(inspection.inspectorK3 || inspection.hseName, sigX1 + sigW/2, currentY + 26, { align: 'center' });
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(80, 80, 80);
+      doc.text('Disetujui Oleh,', sigX2 + sigW/2, currentY, { align: 'center' });
+      doc.text('PIC Lapangan', sigX2 + sigW/2, currentY + 4, { align: 'center' });
+      
+      doc.line(sigX2, currentY + 22, sigX2 + sigW, currentY + 22);
+      
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(inspection.pic || 'PIC Lapangan', sigX2 + sigW/2, currentY + 26, { align: 'center' });
+
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.2);
+        doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+        
+        doc.setTextColor(120, 120, 120);
+        doc.setFontSize(7.5);
+        doc.setFont('Helvetica', 'normal');
+        doc.text('PT PAWA INDONESIA ENGINEER — Laporan Dokumentasi K3', margin, pageHeight - 6);
+        doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin - 22, pageHeight - 6);
+      }
+
+      const cleanTitle = inspection.title.trim().replace(/\s+/g, '_');
+      doc.save(`PT_PAWA_HSE_Inspection_${cleanTitle}.pdf`);
+
+    } catch (err) {
+      console.error('Failed to generate safety inspection PDF:', err);
+      showCustomAlert('Gagal membuat laporan PDF inspeksi.', 'Gagal Export');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Mass Export Findings to Excel (.xlsx)
   const handleMassExcelExport = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -402,6 +770,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     a.download = `PT_PAWA_HSE_Findings_${Date.now()}.xlsx`;
     a.click();
   };
+
+  const filteredHazards = hazards.filter((h) => {
+    const yearMatches = searchYear === 'All' || h.createdAt.startsWith(searchYear);
+    const monthMatches = searchMonth === 'All' || h.createdAt.slice(5, 7) === searchMonth;
+    return yearMatches && monthMatches;
+  });
+
+  const filteredInspections = inspections.filter((ins) => {
+    const yearMatches = searchYear === 'All' || ins.createdAt.startsWith(searchYear);
+    const monthMatches = searchMonth === 'All' || ins.createdAt.slice(5, 7) === searchMonth;
+    return yearMatches && monthMatches;
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-[#080713]">
@@ -640,6 +1020,92 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-800/40 pt-4">
+                  {/* Inspector K3 */}
+                  <div>
+                    <label htmlFor="inspectorK3" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Inspector K3</label>
+                    <input
+                      id="inspectorK3"
+                      type="text"
+                      required
+                      value={inspectorK3}
+                      onChange={(e) => setInspectorK3(e.target.value)}
+                      placeholder="Nama Inspector K3"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
+                  {/* Aktivitas */}
+                  <div>
+                    <label htmlFor="aktivitas" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Aktivitas</label>
+                    <input
+                      id="aktivitas"
+                      type="text"
+                      required
+                      value={aktivitas}
+                      onChange={(e) => setAktivitas(e.target.value)}
+                      placeholder="Contoh: P.M Maintenance LDB & RDB"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
+                  {/* Lokasi */}
+                  <div>
+                    <label htmlFor="lokasi" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Lokasi</label>
+                    <input
+                      id="lokasi"
+                      type="text"
+                      required
+                      value={lokasi}
+                      onChange={(e) => setLokasi(e.target.value)}
+                      placeholder="Contoh: Ged.Campus Travo Room 1,3"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
+                  {/* Personil */}
+                  <div>
+                    <label htmlFor="personil" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Personil</label>
+                    <input
+                      id="personil"
+                      type="text"
+                      required
+                      value={personil}
+                      onChange={(e) => setPersonil(e.target.value)}
+                      placeholder="Contoh: 4 orang dme"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
+                  {/* PIC */}
+                  <div>
+                    <label htmlFor="pic" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">PIC</label>
+                    <input
+                      id="pic"
+                      type="text"
+                      required
+                      value={pic}
+                      onChange={(e) => setPic(e.target.value)}
+                      placeholder="Contoh: Tonggo"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+
+                  {/* Anggota */}
+                  <div>
+                    <label htmlFor="anggota" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Anggota</label>
+                    <input
+                      id="anggota"
+                      type="text"
+                      required
+                      value={anggota}
+                      onChange={(e) => setAnggota(e.target.value)}
+                      placeholder="Contoh: Dison, Sulardi, Bayu"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
+                    />
+                  </div>
+                </div>
+
                 {/* Checklist items list */}
                 <div className="border-t border-slate-800/80 pt-6 space-y-4">
                   <h3 className="text-sm font-bold text-white mb-4">Daftar Poin Pemeriksaan</h3>
@@ -748,37 +1214,95 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                   </div>
                 </div>
 
-                {/* Findings List */}
-                <div className="space-y-4">
-                  {hazards.length === 0 ? (
-                    <p className="text-center py-6 text-slate-500 text-sm">Tidak ada temuan bahaya K3 dalam database.</p>
-                  ) : (
-                    hazards.map((item) => (
-                      <div key={item.id} className="glass-card p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] bg-red-950/40 text-red-400 border border-red-900/50 px-2 py-0.5 rounded font-bold uppercase">
-                              {item.category}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {new Date(item.createdAt).toLocaleDateString('id-ID')}
-                            </span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Hazard Reports */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+                      <span className="w-1.5 h-4 bg-red-600 rounded-sm"></span>
+                      Temuan Bahaya K3 ({filteredHazards.length})
+                    </h3>
+                    
+                    <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                      {filteredHazards.length === 0 ? (
+                        <p className="text-slate-500 text-xs py-4 text-center">Tidak ada temuan bahaya K3.</p>
+                      ) : (
+                        filteredHazards.map((item) => (
+                          <div key={item.id} className="glass-card p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-950/20 border border-slate-900">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] bg-red-950/40 text-red-400 border border-red-900/50 px-1.5 py-0.5 rounded font-bold uppercase">
+                                  {item.category}
+                                </span>
+                                <span className="text-[9px] text-slate-500 font-mono">
+                                  {new Date(item.createdAt).toLocaleDateString('id-ID')}
+                                </span>
+                              </div>
+                              <h4 className="text-xs font-bold text-white mt-1.5">{item.title}</h4>
+                            </div>
+                            <button
+                              onClick={() => exportHsePDF(item)}
+                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer flex-shrink-0"
+                            >
+                              <FileDown size={11} /> PDF Report
+                            </button>
                           </div>
-                          <h4 className="text-sm font-bold text-white mt-2">{item.title}</h4>
-                          <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</p>
-                        </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
 
-                        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-                          <button
-                            onClick={() => exportHsePDF(item)}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <FileDown size={13} /> PDF Report
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  {/* Right Column: Safety Inspections */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+                      <span className="w-1.5 h-4 bg-[#828200] rounded-sm"></span>
+                      Inspeksi Keselamatan K3 ({filteredInspections.length})
+                    </h3>
+                    
+                    <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                      {filteredInspections.length === 0 ? (
+                        <p className="text-slate-500 text-xs py-4 text-center">Tidak ada inspeksi keselamatan.</p>
+                      ) : (
+                        filteredInspections.map((item) => {
+                          const safeCount = item.checklist.filter(c => c.checked).length;
+                          const totalCount = item.checklist.length;
+                          const ratio = `${safeCount}/${totalCount}`;
+                          
+                          let statusBg = 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/50';
+                          if (item.overallStatus === 'Attention Required') {
+                            statusBg = 'bg-amber-950/40 text-amber-400 border border-amber-900/50';
+                          } else if (item.overallStatus === 'Unsafe') {
+                            statusBg = 'bg-red-950/40 text-red-400 border border-red-900/50';
+                          }
+
+                          return (
+                            <div key={item.id} className="glass-card p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-950/20 border border-slate-900">
+                              <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${statusBg}`}>
+                                    {item.overallStatus}
+                                  </span>
+                                  <span className="text-[9px] bg-slate-900 text-slate-400 px-1.5 py-0.5 rounded font-mono border border-slate-800">
+                                    Poin: {ratio}
+                                  </span>
+                                  <span className="text-[9px] text-slate-500 font-mono">
+                                    {new Date(item.createdAt).toLocaleDateString('id-ID')}
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-white mt-1.5">{item.title}</h4>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">Inspector K3: {item.inspectorK3 || item.hseName}</p>
+                              </div>
+                              <button
+                                onClick={() => exportInspectionPDF(item)}
+                                className="px-2.5 py-1.5 bg-[#828200] hover:bg-[#999900] text-white rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer flex-shrink-0"
+                              >
+                                <FileDown size={11} /> PDF Report
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
