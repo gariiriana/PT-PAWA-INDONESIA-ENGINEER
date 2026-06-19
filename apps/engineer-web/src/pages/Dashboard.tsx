@@ -578,7 +578,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
   // Helper to save report to Firestore and return the saved document
   const saveReportToFirestore = async (): Promise<ReportEngineer | null> => {
     if (!reportTitle) {
-      showCustomAlert('Nama Maintenance tidak boleh kosong.', 'Peringatan');
+      showCustomAlert('Nama Pekerjaan tidak boleh kosong.', 'Peringatan');
       return null;
     }
 
@@ -1194,22 +1194,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
             <form onSubmit={handleSaveToArchive} className="space-y-6">
               <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Nama Maintenance */}
+                  {/* Nama Pekerjaan */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama Maintenance</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama Pekerjaan</label>
                     <input
                       type="text"
                       required
                       value={reportTitle}
                       onChange={(e) => setReportTitle(e.target.value)}
-                      placeholder="cth. Maintenance Bulanan"
+                      placeholder="cth. Pekerjaan Bulanan"
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                     />
                   </div>
 
-                  {/* Detail Unit Maintenance */}
+                  {/* Detail Unit Pekerjaan */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Detail Unit Maintenance</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Detail Unit Pekerjaan</label>
                     <input
                       type="text"
                       required
@@ -1220,13 +1220,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                     />
                   </div>
 
-                  {/* Waktu Maintenance */}
+                  {/* Waktu Pekerjaan */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Waktu Maintenance</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Waktu Pekerjaan</label>
                     <input
                       type="date"
                       required
-                      title="Waktu Maintenance"
+                      title="Waktu Pekerjaan"
                       value={waktuMaintenance}
                       onChange={(e) => setWaktuMaintenance(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
@@ -1502,7 +1502,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                   Document Archive
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Semua dokumen Excel & PDF maintenance yang telah diekspor atau tersimpan dalam database.
+                  Semua dokumen Excel & PDF pekerjaan yang telah diekspor atau tersimpan dalam database.
                 </p>
               </div>
 
@@ -1517,7 +1517,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari nama maintenance..."
+                    placeholder="Cari nama pekerjaan..."
                     className="w-full pl-9 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                   />
                 </div>
@@ -1590,7 +1590,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
               {filteredReports.length === 0 ? (
                 <div className="glass-panel p-16 text-center rounded-2xl border border-slate-800">
                   <FileText className="mx-auto text-slate-700 mb-3" size={32} />
-                  <p className="text-slate-500 text-xs">Tidak ada laporan maintenance yang ditemukan.</p>
+                  <p className="text-slate-500 text-xs">Tidak ada laporan pekerjaan yang ditemukan.</p>
                   <p className="text-slate-600 text-[10px] mt-1">Coba sesuaikan kata kunci pencarian atau buat laporan baru.</p>
                 </div>
               ) : (

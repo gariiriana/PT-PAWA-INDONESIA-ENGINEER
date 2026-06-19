@@ -1044,7 +1044,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                       required
                       value={aktivitas}
                       onChange={(e) => setAktivitas(e.target.value)}
-                      placeholder="Contoh: P.M Maintenance LDB & RDB"
+                      placeholder="Contoh: P.M Pekerjaan LDB & RDB"
                       className="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-[#828200]"
                     />
                   </div>

@@ -61,7 +61,7 @@ const K3_CHECKLIST_TEMPLATE: Omit<K3CheckItem, 'checked' | 'isExpanded'>[] = [
     ],
   },
   { id: 'tools_bertagging', label: 'TOOLS BERTAGGING & SDH DI-CHECKLIST' },
-  { id: 'log_maintenance', label: 'LOG MAINTENANCE' },
+  { id: 'log_maintenance', label: 'LOG PEKERJAAN' },
   { id: 'housekeeping', label: 'HOUSEKEEPING AREA KERJA' },
   {
     id: 'safety_sign',
@@ -70,7 +70,7 @@ const K3_CHECKLIST_TEMPLATE: Omit<K3CheckItem, 'checked' | 'isExpanded'>[] = [
       { id: 'safety_sign_pita', label: 'Pita Baricade', checked: false },
       { id: 'safety_sign_cone', label: 'Safety Cone', checked: false },
       { id: 'safety_sign_stik', label: 'Stik Bariket', checked: false },
-      { id: 'safety_sign_under', label: 'Under Maintenance', checked: false },
+      { id: 'safety_sign_under', label: 'Under Pekerjaan', checked: false },
     ],
   },
 ];
@@ -595,7 +595,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
   const handleSubmitInspection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aktivitas) {
-      showCustomAlert('Mohon isi aktivitas maintenance.', 'Peringatan');
+      showCustomAlert('Mohon isi aktivitas pekerjaan.', 'Peringatan');
       return;
     }
     setLoading(true);
@@ -1222,7 +1222,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         overallStatus,
         comments,
         inspectorK3: inspectorK3 || userProfile.name,
-        aktivitas: aktivitas || 'Aktivitas Maintenance',
+        aktivitas: aktivitas || 'Aktivitas Pekerjaan',
         lokasi: lokasi || 'Lokasi Kerja',
         personil: personil || '0 org',
         pic: pic || 'PIC Lapangan',
@@ -1257,7 +1257,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
 
   const handleSaveAndExportPDF = async () => {
     if (!aktivitas) {
-      showCustomAlert('Mohon isi aktivitas maintenance.', 'Peringatan');
+      showCustomAlert('Mohon isi aktivitas pekerjaan.', 'Peringatan');
       return;
     }
     setLoading(true);
@@ -1530,7 +1530,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                     <div>
                       <label htmlFor="aktivitas" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <FileText size={12} className="text-[#828200]" />
-                        AKTIVITAS (NAMA MAINTENANCE)
+                        AKTIVITAS (NAMA PEKERJAAN)
                       </label>
                       <input
                         id="aktivitas"
@@ -1538,7 +1538,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                         required
                         value={aktivitas}
                         onChange={(e) => setAktivitas(e.target.value)}
-                        placeholder="Contoh: P.M Maintenance LIFT"
+                        placeholder="Contoh: P.M Pekerjaan LIFT"
                         className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#828200] focus:ring-1 focus:ring-[#828200] transition duration-200"
                       />
                     </div>
