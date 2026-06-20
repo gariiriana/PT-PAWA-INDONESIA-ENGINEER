@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /hse-dashboard
+
+Sitemap: https://pt-pawa-indonesia-engineer-report.com/sitemap.xml
