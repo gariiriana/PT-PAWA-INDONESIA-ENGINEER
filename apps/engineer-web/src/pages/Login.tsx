@@ -109,6 +109,42 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
 
+    // Verify Turnstile Token on backend
+    try {
+      if (!turnstileToken) {
+        throw new Error('Selesaikan verifikasi captcha terlebih dahulu.');
+      }
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const verifyRes = await fetch(`${apiUrl}/api/verify-turnstile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      
+      if (!verifyRes.ok) {
+        throw new Error('Gagal menghubungi backend verifikasi keamanan.');
+      }
+      
+      const verifyData = await verifyRes.json();
+      if (!verifyData.success) {
+        throw new Error(verifyData.message || 'Verifikasi keamanan Turnstile gagal.');
+      }
+    } catch (verifyErr: any) {
+      console.error('Backend Turnstile Verification failed:', verifyErr);
+      setError(verifyErr.message || 'Gagal memverifikasi captcha. Silakan coba lagi.');
+      setLoading(false);
+      if (window.turnstile && widgetIdRef.current) {
+        try {
+          window.turnstile.reset(widgetIdRef.current);
+        } catch (e) {
+          // ignore
+        }
+      }
+      return;
+    }
+
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCred.user.uid;
