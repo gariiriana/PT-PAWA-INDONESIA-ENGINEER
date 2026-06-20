@@ -42,3 +42,5 @@ firebase-debug.log
 # Go
 tmp_build*
 vendor/
+
+.vercel
