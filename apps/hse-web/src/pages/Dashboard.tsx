@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
-import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { 
   LogOut, ShieldAlert, CheckCircle2, AlertTriangle, Camera, FileDown, 
-  Settings, User, Plus, Search, Calendar, ChevronRight, CheckSquare, Eye 
+  Settings, User, Plus, Search, Calendar, ChevronRight, CheckSquare, Eye, Trash2
 } from 'lucide-react';
 import { auth, db } from '../config/firebase';
 import { 
@@ -296,6 +296,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteInspection = async (id: string) => {
+    showCustomConfirm(
+      'Apakah Anda yakin ingin menghapus laporan inspeksi keselamatan ini secara permanen dari arsip?',
+      async () => {
+        setLoading(true);
+        try {
+          await deleteDoc(doc(db, 'safety_inspections', id));
+          showCustomAlert('Laporan inspeksi berhasil dihapus.', 'Sukses');
+          await fetchArchives();
+        } catch (err) {
+          console.error('Delete inspection error:', err);
+          showCustomAlert('Gagal menghapus laporan inspeksi.', 'Kesalahan');
+        } finally {
+          setLoading(false);
+        }
+      },
+      'Hapus Laporan K3'
+    );
   };
 
   // Export Hazard Finding to A4 PDF Layout
@@ -1301,12 +1321,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
                                 <h4 className="text-xs font-bold text-white mt-1.5">{item.title}</h4>
                                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">Inspector K3: {item.inspectorK3 || item.hseName}</p>
                               </div>
-                              <button
-                                onClick={() => exportInspectionPDF(item)}
-                                className="px-2.5 py-1.5 bg-[#828200] hover:bg-[#999900] text-white rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer flex-shrink-0"
-                              >
-                                <FileDown size={11} /> PDF Report
-                              </button>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <button
+                                  onClick={() => exportInspectionPDF(item)}
+                                  className="px-2.5 py-1.5 bg-[#828200] hover:bg-[#999900] text-white rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer font-bold"
+                                >
+                                  <FileDown size={11} /> PDF Report
+                                </button>
+                                {item.id && (
+                                  <button
+                                    onClick={() => handleDeleteInspection(item.id!)}
+                                    className="px-2.5 py-1.5 bg-red-955/40 hover:bg-red-900/60 hover:text-red-300 text-red-400 rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer border border-red-900/50 font-bold"
+                                    title="Hapus Laporan K3"
+                                  >
+                                    <Trash2 size={11} /> Hapus
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })

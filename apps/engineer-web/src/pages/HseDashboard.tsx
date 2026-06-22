@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
-import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { 
   LogOut, ShieldAlert, CheckCircle2, AlertTriangle, Camera, FileDown, 
   Settings, User, Plus, Search, Calendar, ChevronRight, CheckSquare, Eye,
@@ -491,6 +491,26 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setActiveTab('arsip-laporan');
   };
 
+  const handleDeleteInspection = async (id: string) => {
+    showCustomConfirm(
+      'Apakah Anda yakin ingin menghapus laporan inspeksi keselamatan ini secara permanen dari arsip?',
+      async () => {
+        setLoading(true);
+        try {
+          await deleteDoc(doc(db, 'safety_inspections', id));
+          showCustomAlert('Laporan inspeksi berhasil dihapus.', 'Sukses');
+          await fetchArchives();
+        } catch (err) {
+          console.error('Delete inspection error:', err);
+          showCustomAlert('Gagal menghapus laporan inspeksi.', 'Kesalahan');
+        } finally {
+          setLoading(false);
+        }
+      },
+      'Hapus Laporan K3'
+    );
+  };
+
   // K3 Checklist handlers
   const handleToggleExpand = (id: string) => {
     setK3Checklist(prev => prev.map(item =>
@@ -914,39 +934,51 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         item: { label: string; checked: boolean },
         x: number,
         y: number,
-        isSubItem: boolean = false
+        isSubItem: boolean = false,
+        drawBg: boolean = false,
+        specialBg: string | null = null
       ): number => {
-        const indent = isSubItem ? 5 : 0;
-        const r = isSubItem ? 1.8 : 2.5;
-        const cx = x + indent + r + 1;
-        const cy = y - 0.5;
-        const fontSize = isSubItem ? 6.5 : 7.5;
-        if (item.checked) {
-          doc.setFillColor(34, 139, 34);
-          doc.circle(cx, cy, r, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('Helvetica', 'bold');
-          doc.setFontSize(fontSize - 1);
-          doc.text('\u2713', cx - 0.8, cy + 0.7);
-        } else {
-          doc.setFillColor(200, 30, 30);
-          doc.circle(cx, cy, r, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('Helvetica', 'bold');
-          doc.setFontSize(fontSize - 1);
-          doc.text('\u2717', cx - 0.9, cy + 0.7);
+        const rowH = 7.0;
+        const colW = contentW / 2;
+
+        if (specialBg) {
+          doc.setFillColor(specialBg);
+          doc.rect(x, y, colW - 3, rowH, 'F');
+        } else if (drawBg) {
+          doc.setFillColor(245, 247, 250); // Light blue/grey strip
+          doc.rect(x, y, colW - 3, rowH, 'F');
         }
+
+        const indent = isSubItem ? 5 : 0;
+        const r = isSubItem ? 1.8 : 2.2;
+        const cx = x + indent + r + 1.5;
+        const cy = y + rowH / 2;
+        const fontSize = isSubItem ? 7.0 : 8.0;
+
+        if (item.checked) {
+          doc.setFillColor(16, 185, 129); // Emerald Green
+          doc.circle(cx, cy, r, 'F');
+          doc.setLineWidth(0.35);
+          doc.setDrawColor(255, 255, 255);
+          doc.line(cx - r * 0.45, cy - r * 0.05, cx - r * 0.15, cy + r * 0.3);
+          doc.line(cx - r * 0.15, cy + r * 0.3, cx + r * 0.45, cy - r * 0.35);
+        } else {
+          doc.setFillColor(239, 68, 68); // Red
+          doc.circle(cx, cy, r, 'F');
+          doc.setLineWidth(0.35);
+          doc.setDrawColor(255, 255, 255);
+          doc.line(cx - r * 0.4, cy - r * 0.4, cx + r * 0.4, cy + r * 0.4);
+          doc.line(cx - r * 0.4, cy + r * 0.4, cx + r * 0.4, cy - r * 0.4);
+        }
+
         doc.setFont('Helvetica', isSubItem ? 'normal' : 'bold');
         doc.setFontSize(fontSize);
-        doc.setTextColor(
-          item.checked ? 22 : 160,
-          item.checked ? 100 : 30,
-          item.checked ? 22 : 30
-        );
-        const labelX = x + indent + r * 2 + 2.5;
-        const labelMaxW = colW - indent - r * 2 - 6;
+        doc.setTextColor(51, 65, 85); // Slate 700
+
+        const labelX = x + indent + r * 2 + 4.0;
+        const labelMaxW = colW - indent - r * 2 - 8;
         const labelLines = doc.splitTextToSize(item.label, labelMaxW) as string[];
-        doc.text(labelLines, labelX, y + 0.3);
+        doc.text(labelLines, labelX, y + rowH / 2 + 0.95);
         return labelLines.length;
       };
 
@@ -962,48 +994,69 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       const leftItems = k3Items.filter((_, i) => i % 2 === 0);
       const rightItems = k3Items.filter((_, i) => i % 2 === 1);
       const maxRows = Math.max(leftItems.length, rightItems.length);
+      let rowVisualIndex = 0;
+      const rowH = 7.0;
 
       for (let row = 0; row < maxRows; row++) {
-        if (checkY + 8 > pageHeight - 15) {
-          doc.addPage(); drawPageHeader(); checkY = 32;
+        if (checkY + rowH + 2 > pageHeight - 15) {
+          doc.addPage(); 
+          drawPageHeader(); 
+          checkY = 32;
           doc.setFillColor(20, 40, 80);
-          doc.rect(margin, checkY, contentW, 6, 'F');
+          doc.rect(margin, checkY, contentW, 7, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFont('Helvetica', 'bold');
-          doc.setFontSize(7.5);
-          doc.text('I. CHECKLIST (cont.)', margin + 3, checkY + 4);
-          checkY += 8;
+          doc.setFontSize(8);
+          doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.8);
+          checkY += 9;
         }
+
         const li = leftItems[row];
         const ri = rightItems[row];
-        let maxRowH = 5.5;
-        if (li) { const lines = drawCheckItem(li, margin, checkY); maxRowH = Math.max(maxRowH, lines * 5); }
-        if (ri) { const lines = drawCheckItem(ri, margin + colW, checkY); maxRowH = Math.max(maxRowH, lines * 5); }
-        checkY += maxRowH;
+        const drawBg = (rowVisualIndex % 2 === 1);
+
+        if (li) { drawCheckItem(li, margin, checkY, false, drawBg); }
+        if (ri) { drawCheckItem(ri, margin + colW, checkY, false, drawBg); }
+        checkY += rowH;
+        rowVisualIndex++;
 
         const leftSubs = li?.subItems || [];
         const rightSubs = ri?.subItems || [];
         const maxSubs = Math.max(leftSubs.length, rightSubs.length);
+
         for (let si = 0; si < maxSubs; si++) {
-          if (checkY + 5 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
-          let subRowH = 4.5;
-          if (leftSubs[si]) { const lines = drawCheckItem(leftSubs[si], margin, checkY, true); subRowH = Math.max(subRowH, lines * 4.2); }
-          if (rightSubs[si]) { const lines = drawCheckItem(rightSubs[si], margin + colW, checkY, true); subRowH = Math.max(subRowH, lines * 4.2); }
-          checkY += subRowH;
+          if (checkY + rowH + 2 > pageHeight - 15) {
+            doc.addPage(); 
+            drawPageHeader(); 
+            checkY = 32;
+            doc.setFillColor(20, 40, 80);
+            doc.rect(margin, checkY, contentW, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.8);
+            checkY += 9;
+          }
+
+          const subBg = (rowVisualIndex % 2 === 1);
+          if (leftSubs[si]) { drawCheckItem(leftSubs[si], margin, checkY, true, subBg); }
+          if (rightSubs[si]) { drawCheckItem(rightSubs[si], margin + colW, checkY, true, subBg); }
+          checkY += rowH;
+          rowVisualIndex++;
         }
-        checkY += 1.5;
       }
 
-      checkY += 3;
-      if (checkY + 15 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+      checkY += 4;
+      if (checkY + rowH + 10 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
       doc.setFont('Helvetica', 'bold');
-      doc.setFontSize(7.5);
+      doc.setFontSize(8);
       doc.setTextColor(80, 80, 80);
       doc.text('KESIMPULAN PEKERJAAN', pageWidth / 2, checkY, { align: 'center' });
-      checkY += 5.5;
-      drawCheckItem({ label: 'SAFE CONDITION', checked: inspection.safeCondition ?? false }, margin + 5, checkY);
-      drawCheckItem({ label: 'SAFE ACTION', checked: inspection.safeAction ?? false }, margin + colW + 5, checkY);
-      checkY += 9;
+      checkY += 3.5;
+
+      drawCheckItem({ label: 'SAFE CONDITION', checked: inspection.safeCondition ?? false }, margin, checkY, false, false, '#edf5ff');
+      drawCheckItem({ label: 'SAFE ACTION', checked: inspection.safeAction ?? false }, margin + colW, checkY, false, false, '#edf5ff');
+      checkY += rowH + 4;
     }
     // END K3 CHECKLIST
 
@@ -2055,6 +2108,16 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                             >
                               <FileDown size={13} /> PDF
                             </button>
+                            {item.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteInspection(item.id!)}
+                                className="px-3 py-2 bg-red-955/40 hover:bg-red-900/60 hover:text-red-300 text-red-400 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer border border-red-900/50 font-bold"
+                                title="Hapus Laporan K3"
+                              >
+                                <Trash2 size={13} /> Hapus
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
