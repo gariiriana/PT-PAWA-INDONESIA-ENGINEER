@@ -938,7 +938,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         drawBg: boolean = false,
         specialBg: string | null = null
       ): number => {
-        const rowH = 7.0;
+        const rowH = 5.0;
         const colW = contentW / 2;
 
         if (specialBg) {
@@ -950,22 +950,22 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         }
 
         const indent = isSubItem ? 5 : 0;
-        const r = isSubItem ? 1.8 : 2.2;
+        const r = isSubItem ? 1.4 : 1.7;
         const cx = x + indent + r + 1.5;
         const cy = y + rowH / 2;
-        const fontSize = isSubItem ? 7.0 : 8.0;
+        const fontSize = isSubItem ? 6.5 : 7.5;
 
         if (item.checked) {
           doc.setFillColor(16, 185, 129); // Emerald Green
           doc.circle(cx, cy, r, 'F');
-          doc.setLineWidth(0.35);
+          doc.setLineWidth(0.3);
           doc.setDrawColor(255, 255, 255);
           doc.line(cx - r * 0.45, cy - r * 0.05, cx - r * 0.15, cy + r * 0.3);
           doc.line(cx - r * 0.15, cy + r * 0.3, cx + r * 0.45, cy - r * 0.35);
         } else {
           doc.setFillColor(239, 68, 68); // Red
           doc.circle(cx, cy, r, 'F');
-          doc.setLineWidth(0.35);
+          doc.setLineWidth(0.3);
           doc.setDrawColor(255, 255, 255);
           doc.line(cx - r * 0.4, cy - r * 0.4, cx + r * 0.4, cy + r * 0.4);
           doc.line(cx - r * 0.4, cy + r * 0.4, cx + r * 0.4, cy - r * 0.4);
@@ -975,40 +975,40 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         doc.setFontSize(fontSize);
         doc.setTextColor(51, 65, 85); // Slate 700
 
-        const labelX = x + indent + r * 2 + 4.0;
-        const labelMaxW = colW - indent - r * 2 - 8;
+        const labelX = x + indent + r * 2 + 3.5;
+        const labelMaxW = colW - indent - r * 2 - 7;
         const labelLines = doc.splitTextToSize(item.label, labelMaxW) as string[];
-        doc.text(labelLines, labelX, y + rowH / 2 + 0.95);
+        doc.text(labelLines, labelX, y + rowH / 2 + 0.85);
         return labelLines.length;
       };
 
-      if (checkY + 10 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
-      doc.setFillColor(20, 40, 80);
-      doc.rect(margin, checkY, contentW, 7, 'F');
+      if (checkY + 8 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+      doc.setFillColor(130, 130, 0); // Brand Gold-Olive
+      doc.rect(margin, checkY, contentW, 6, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('Helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED)', margin + 3, checkY + 4.8);
-      checkY += 9;
+      doc.setFontSize(7.5);
+      doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED)', margin + 3, checkY + 4.2);
+      checkY += 8;
 
       const leftItems = k3Items.filter((_, i) => i % 2 === 0);
       const rightItems = k3Items.filter((_, i) => i % 2 === 1);
       const maxRows = Math.max(leftItems.length, rightItems.length);
       let rowVisualIndex = 0;
-      const rowH = 7.0;
+      const rowH = 5.0;
 
       for (let row = 0; row < maxRows; row++) {
         if (checkY + rowH + 2 > pageHeight - 15) {
           doc.addPage(); 
           drawPageHeader(); 
           checkY = 32;
-          doc.setFillColor(20, 40, 80);
-          doc.rect(margin, checkY, contentW, 7, 'F');
+          doc.setFillColor(130, 130, 0); // Brand Gold-Olive
+          doc.rect(margin, checkY, contentW, 6, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFont('Helvetica', 'bold');
-          doc.setFontSize(8);
-          doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.8);
-          checkY += 9;
+          doc.setFontSize(7.5);
+          doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.2);
+          checkY += 8;
         }
 
         const li = leftItems[row];
@@ -1020,8 +1020,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         checkY += rowH;
         rowVisualIndex++;
 
-        const leftSubs = li?.subItems || [];
-        const rightSubs = ri?.subItems || [];
+        // Filter sub-items to only show those that are checked (not empty/unchecked)
+        const leftSubs = (li?.subItems || []).filter(sub => sub.checked);
+        const rightSubs = (ri?.subItems || []).filter(sub => sub.checked);
         const maxSubs = Math.max(leftSubs.length, rightSubs.length);
 
         for (let si = 0; si < maxSubs; si++) {
@@ -1029,13 +1030,13 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
             doc.addPage(); 
             drawPageHeader(); 
             checkY = 32;
-            doc.setFillColor(20, 40, 80);
-            doc.rect(margin, checkY, contentW, 7, 'F');
+            doc.setFillColor(130, 130, 0); // Brand Gold-Olive
+            doc.rect(margin, checkY, contentW, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.8);
-            checkY += 9;
+            doc.setFontSize(7.5);
+            doc.text('I. CHECKLIST KESELAMATAN KERJA (REQUIRED) (cont.)', margin + 3, checkY + 4.2);
+            checkY += 8;
           }
 
           const subBg = (rowVisualIndex % 2 === 1);
@@ -1046,17 +1047,17 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         }
       }
 
-      checkY += 4;
-      if (checkY + rowH + 10 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
+      checkY += 3;
+      if (checkY + rowH + 8 > pageHeight - 15) { doc.addPage(); drawPageHeader(); checkY = 32; }
       doc.setFont('Helvetica', 'bold');
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(80, 80, 80);
       doc.text('KESIMPULAN PEKERJAAN', pageWidth / 2, checkY, { align: 'center' });
-      checkY += 3.5;
+      checkY += 3.0;
 
       drawCheckItem({ label: 'SAFE CONDITION', checked: inspection.safeCondition ?? false }, margin, checkY, false, false, '#edf5ff');
       drawCheckItem({ label: 'SAFE ACTION', checked: inspection.safeAction ?? false }, margin + colW, checkY, false, false, '#edf5ff');
-      checkY += rowH + 4;
+      checkY += rowH + 3;
     }
     // END K3 CHECKLIST
 
@@ -1095,7 +1096,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     // Let's draw the grid cards in 3 columns.
     let px = margin;
     const cardW = 58;
-    const cardH = 76; // taller card to fit larger text and images nicely
+    const cardH = 62; // compact card to fit nicely on page 1
     const gap = 8;
     
     let currentPage = 1;
