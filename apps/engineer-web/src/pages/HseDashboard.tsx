@@ -147,6 +147,21 @@ const compressImageFile = async (file: File): Promise<Blob> => {
   });
 };
 
+const cleanUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        newObj[key] = cleanUndefined(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+};
+
 export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'buat-inspeksi' | 'arsip-laporan'>('buat-inspeksi');
   const [hazards, setHazards] = useState<ReportHSE[]>([]);
@@ -630,10 +645,12 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         })),
       };
 
+      const cleanedInspection = cleanUndefined(newInspection);
+
       if (editingInspectionId) {
-        await setDoc(doc(db, 'safety_inspections', editingInspectionId), newInspection);
+        await setDoc(doc(db, 'safety_inspections', editingInspectionId), cleanedInspection);
       } else {
-        await addDoc(collection(db, 'safety_inspections'), newInspection);
+        await addDoc(collection(db, 'safety_inspections'), cleanedInspection);
       }
 
       setComments('');
@@ -1292,15 +1309,17 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         })),
       };
 
+      const cleanedInspection = cleanUndefined(newInspection);
+
       if (editingInspectionId) {
-        await setDoc(doc(db, 'safety_inspections', editingInspectionId), newInspection);
+        await setDoc(doc(db, 'safety_inspections', editingInspectionId), cleanedInspection);
       } else {
-        await addDoc(collection(db, 'safety_inspections'), newInspection);
+        await addDoc(collection(db, 'safety_inspections'), cleanedInspection);
       }
       
       // Generate and download PDF
-      const docPdf = await generateInspectionPDFDocument(newInspection);
-      const cleanTitle = newInspection.title.trim().replace(/\s+/g, '_');
+      const docPdf = await generateInspectionPDFDocument(cleanedInspection);
+      const cleanTitle = cleanedInspection.title.trim().replace(/\s+/g, '_');
       docPdf.save(`PT_PAWA_HSE_Inspection_${cleanTitle}.pdf`);
 
       // Reset form

@@ -107,9 +107,12 @@ func RegisterRoutes(log logger.Logger) http.Handler {
 	allowedOrigins := []string{
 		"http://localhost:3000", // Engineer Portal
 		"http://localhost:3001", // HSE Portal
+		"https://localhost:3000", // Engineer Portal (HTTPS)
+		"https://localhost:3001", // HSE Portal (HTTPS)
 		"https://pt-pawa-indonesia-engineer-report.com",
-		"https://pt-pawa-indonesia.web.app",
-		"https://pt-pawa-indonesia-hse-web.web.app",
+		"https://www.pt-pawa-indonesia-engineer-report.com",
+		"https://pt-pawa-indonesia-hse-report.com",
+		"https://www.pt-pawa-indonesia-hse-report.com",
 	}
 
 	limiter := middlewares.NewRateLimiter(20.0, 10.0) // 20 capacity, refill 10/sec

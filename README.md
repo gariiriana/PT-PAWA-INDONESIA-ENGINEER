@@ -123,8 +123,8 @@ Strict security policies are enforced on the Firebase Firestore backend via secu
 
 The system is deployed on Firebase Cloud Infrastructure:
 
-* **Engineer System:** [https://pt-pawa-indonesia.web.app](https://pt-pawa-indonesia.web.app)
-* **HSE & K3 System:** [https://pt-pawa-indonesia-hse.web.app](https://pt-pawa-indonesia-hse.web.app)
+* **Engineer System:** [https://pt-pawa-indonesia-engineer-report.com](https://pt-pawa-indonesia-engineer-report.com)
+* **HSE & K3 System:** [https://pt-pawa-indonesia-hse-report.com](https://pt-pawa-indonesia-hse-report.com)
 
 ---
 
