@@ -110,6 +110,21 @@ const compressImageFile = async (file: File): Promise<Blob> => {
   });
 };
 
+const cleanUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        newObj[key] = cleanUndefined(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) => {
   // Main tabs: 'buat-laporan' (Buat Laporan) and 'arsip-dokumen' (Arsip Dokumen)
   const [activeTab, setActiveTab] = useState<'buat-laporan' | 'arsip-dokumen'>('buat-laporan');
@@ -615,16 +630,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }) =
       let savedDocId = reportId;
       if (reportId) {
         // Update existing
-        await setDoc(doc(db, 'reports_engineer', reportId), {
+        await setDoc(doc(db, 'reports_engineer', reportId), cleanUndefined({
           ...reportData,
           createdAt: reports.find(r => r.id === reportId)?.createdAt || new Date().toISOString()
-        }, { merge: true });
+        }), { merge: true });
       } else {
         // Create new
-        const docRef = await addDoc(collection(db, 'reports_engineer'), {
+        const docRef = await addDoc(collection(db, 'reports_engineer'), cleanUndefined({
           ...reportData,
           createdAt: new Date().toISOString(),
-        });
+        }));
         savedDocId = docRef.id;
       }
       
