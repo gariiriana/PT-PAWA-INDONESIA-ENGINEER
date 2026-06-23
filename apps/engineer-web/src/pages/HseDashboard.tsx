@@ -34,8 +34,8 @@ const SAFETY_CHECKLIST_TEMPLATE: Omit<SafetyCheckItem, 'checked' | 'notes'>[] = 
 
 // K3 Checklist template with parent & sub items
 const K3_CHECKLIST_TEMPLATE: Omit<K3CheckItem, 'checked' | 'isExpanded'>[] = [
-  { id: 'mop', label: 'MOP' },
-  { id: 'jsa', label: 'JSA' },
+  { id: 'msra', label: 'MSRA' },
+  { id: 'jsa', label: 'JSA / RA' },
   { id: 'ptw', label: 'PTW' },
   { id: 'ppe_mandatory', label: 'PPE MANDATORY' },
   {
@@ -67,7 +67,8 @@ const K3_CHECKLIST_TEMPLATE: Omit<K3CheckItem, 'checked' | 'isExpanded'>[] = [
     id: 'safety_sign',
     label: 'SAFETY SIGN',
     subItems: [
-      { id: 'safety_sign_pita', label: 'Pita Baricade', checked: false },
+      { id: 'safety_sign_line', label: 'Safety Line', checked: false },
+      { id: 'safety_sign_sign', label: 'Safety Sign', checked: false },
       { id: 'safety_sign_cone', label: 'Safety Cone', checked: false },
       { id: 'safety_sign_stik', label: 'Stik Bariket', checked: false },
       { id: 'safety_sign_under', label: 'Under Pekerjaan', checked: false },
@@ -521,7 +522,13 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
   const handleToggleParent = (id: string) => {
     setK3Checklist(prev => prev.map(item => {
       if (item.id !== id) return item;
-      const newChecked = !item.checked;
+      let newChecked: boolean;
+      if (item.subItems && item.subItems.length > 0) {
+        const allChecked = item.subItems.every(s => s.checked);
+        newChecked = !allChecked;
+      } else {
+        newChecked = !item.checked;
+      }
       return {
         ...item,
         checked: newChecked,
@@ -538,8 +545,8 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       const newSubItems = (item.subItems || []).map(s =>
         s.id === subId ? { ...s, checked: !s.checked } : s
       );
-      const allChecked = newSubItems.every(s => s.checked);
-      return { ...item, subItems: newSubItems, checked: allChecked };
+      const anyChecked = newSubItems.some(s => s.checked);
+      return { ...item, subItems: newSubItems, checked: anyChecked };
     }));
   };
 
@@ -931,7 +938,7 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
       const colW = contentW / 2;
 
       const drawCheckItem = (
-        item: { label: string; checked: boolean },
+        item: { label: string; checked: boolean; subItems?: any[] },
         x: number,
         y: number,
         isSubItem: boolean = false,
@@ -955,7 +962,12 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         const cy = y + rowH / 2;
         const fontSize = isSubItem ? 6.5 : 7.5;
 
-        if (item.checked) {
+        let isChecked = item.checked;
+        if (!isSubItem && item.subItems && item.subItems.length > 0) {
+          isChecked = item.subItems.some(s => s.checked);
+        }
+
+        if (isChecked) {
           doc.setFillColor(16, 185, 129); // Emerald Green
           doc.circle(cx, cy, r, 'F');
           doc.setLineWidth(0.3);
@@ -1289,10 +1301,10 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
     setLoading(true);
     try {
       const tempInspection: SafetyInspection = {
-        title: `Inspeksi HSE - ${aktivitas || 'DRAFT'} - ${new Date(originalCreatedAt || new Date().toISOString()).toLocaleDateString('id-ID')}`,
+        title: `Inspeksi HSE - ${aktivitas || 'DRAFT'} - ${new Date(originalCreatedAt || new Date(tanggalInspeksi).toISOString()).toLocaleDateString('id-ID')}`,
         hseId: userProfile.uid,
         hseName: userProfile.name,
-        createdAt: originalCreatedAt || new Date().toISOString(),
+        createdAt: originalCreatedAt || new Date(tanggalInspeksi).toISOString(),
         checklist: [],
         overallStatus,
         comments,
@@ -1302,6 +1314,9 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
         personil: personil || '0 org',
         pic: pic || 'PIC Lapangan',
         anggota: anggota || 'Anggota',
+        k3Checklist: k3Checklist.map(({ isExpanded: _exp, ...rest }) => rest),
+        safeCondition,
+        safeAction,
         steps: cards.map((card, idx) => ({
           stepNumber: idx + 1,
           task: `Dokumentasi ${idx + 1}`,
@@ -1717,74 +1732,148 @@ export const HseDashboard: React.FC<DashboardProps> = ({ userProfile, onLogout }
                     </span>
                   </div>
 
-                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {k3Checklist.map(item => (
-                      <div key={item.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (item.subItems && item.subItems.length > 0) {
-                              handleToggleExpand(item.id);
-                            } else {
-                              handleToggleParent(item.id);
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                            item.checked
-                              ? 'bg-[#1a3a1a] border-green-700/50 text-green-400'
-                              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-900/80 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${
-                              item.checked ? 'bg-green-600 border-green-500' : 'border-slate-700 bg-slate-900'
-                            }`}>
-                              {item.checked && <CheckCircle2 size={10} color="white" />}
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Left Column */}
+                    <div className="space-y-2">
+                      {k3Checklist.filter((_, idx) => idx % 2 === 0).map(item => (
+                        <div key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.subItems && item.subItems.length > 0) {
+                                handleToggleExpand(item.id);
+                              } else {
+                                handleToggleParent(item.id);
+                              }
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                              item.checked
+                                ? 'bg-[#1a3a1a] border-green-700/50 text-green-400'
+                                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-900/80 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${
+                                item.checked ? 'bg-green-600 border-green-500' : 'border-slate-700 bg-slate-900'
+                              }`}>
+                                {item.checked && <CheckCircle2 size={10} color="white" />}
+                              </span>
+                              <span className="text-left leading-tight">{item.label}</span>
+                            </div>
+                            <span className={`text-sm flex-shrink-0 ml-2 ${item.checked ? 'text-green-500' : 'text-red-500'}`}>
+                              {item.subItems && item.subItems.length > 0
+                                ? (item.isExpanded ? '▾' : '▸')
+                                : (item.checked ? '✓' : '✕')
+                              }
                             </span>
-                            <span className="text-left leading-tight">{item.label}</span>
-                          </div>
-                          <span className={`text-sm flex-shrink-0 ml-2 ${item.checked ? 'text-green-500' : 'text-red-500'}`}>
-                            {item.subItems && item.subItems.length > 0
-                              ? (item.isExpanded ? '▾' : '▸')
-                              : (item.checked ? '✓' : '✕')
-                            }
-                          </span>
-                        </button>
+                          </button>
 
-                        {item.subItems && item.subItems.length > 0 && item.isExpanded && (
-                          <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-800 pl-3 py-1">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleParent(item.id)}
-                              className={`w-full text-left text-[10px] font-bold uppercase px-2 py-1 rounded transition cursor-pointer ${
-                                item.checked ? 'text-green-500' : 'text-slate-600 hover:text-slate-400'
-                              }`}
-                            >
-                              {item.checked ? '✓ SEMUA DIPILIH' : '☐ PILIH SEMUA'}
-                            </button>
-                            {item.subItems.map(sub => (
+                          {item.subItems && item.subItems.length > 0 && item.isExpanded && (
+                            <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-800 pl-3 py-1">
                               <button
-                                key={sub.id}
                                 type="button"
-                                onClick={() => handleToggleSub(item.id, sub.id)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-medium text-left transition cursor-pointer border ${
-                                  sub.checked
-                                    ? 'bg-[#1a3a1a]/60 border-green-800/40 text-green-400'
-                                    : 'bg-slate-950/40 border-slate-800/60 text-slate-500 hover:bg-slate-900/40 hover:text-slate-300'
+                                onClick={() => handleToggleParent(item.id)}
+                                className={`w-full text-left text-[10px] font-bold uppercase px-2 py-1 rounded transition cursor-pointer ${
+                                  item.subItems.every(s => s.checked) ? 'text-green-500' : 'text-slate-600 hover:text-slate-400'
                                 }`}
                               >
-                                <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                  sub.checked ? 'bg-green-500 border-green-400' : 'border-slate-700'
-                                }`}>
-                                  {sub.checked && <CheckCircle2 size={7} color="white" />}
-                                </span>
-                                {sub.label}
+                                {item.subItems.every(s => s.checked) ? '✓ SEMUA DIPILIH' : '☐ PILIH SEMUA'}
                               </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                              {item.subItems.map(sub => (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  onClick={() => handleToggleSub(item.id, sub.id)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-medium text-left transition cursor-pointer border ${
+                                    sub.checked
+                                      ? 'bg-[#1a3a1a]/60 border-green-800/40 text-green-400'
+                                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500 hover:bg-slate-900/40 hover:text-slate-300'
+                                  }`}
+                                >
+                                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                    sub.checked ? 'bg-green-500 border-green-400' : 'border-slate-700'
+                                  }`}>
+                                    {sub.checked && <CheckCircle2 size={7} color="white" />}
+                                  </span>
+                                  {sub.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-2">
+                      {k3Checklist.filter((_, idx) => idx % 2 === 1).map(item => (
+                        <div key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.subItems && item.subItems.length > 0) {
+                                handleToggleExpand(item.id);
+                              } else {
+                                handleToggleParent(item.id);
+                              }
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                              item.checked
+                                ? 'bg-[#1a3a1a] border-green-700/50 text-green-400'
+                                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-900/80 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${
+                                item.checked ? 'bg-green-600 border-green-500' : 'border-slate-700 bg-slate-900'
+                              }`}>
+                                {item.checked && <CheckCircle2 size={10} color="white" />}
+                              </span>
+                              <span className="text-left leading-tight">{item.label}</span>
+                            </div>
+                            <span className={`text-sm flex-shrink-0 ml-2 ${item.checked ? 'text-green-500' : 'text-red-500'}`}>
+                              {item.subItems && item.subItems.length > 0
+                                ? (item.isExpanded ? '▾' : '▸')
+                                : (item.checked ? '✓' : '✕')
+                              }
+                            </span>
+                          </button>
+
+                          {item.subItems && item.subItems.length > 0 && item.isExpanded && (
+                            <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-800 pl-3 py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleParent(item.id)}
+                                className={`w-full text-left text-[10px] font-bold uppercase px-2 py-1 rounded transition cursor-pointer ${
+                                  item.subItems.every(s => s.checked) ? 'text-green-500' : 'text-slate-600 hover:text-slate-400'
+                                }`}
+                              >
+                                {item.subItems.every(s => s.checked) ? '✓ SEMUA DIPILIH' : '☐ PILIH SEMUA'}
+                              </button>
+                              {item.subItems.map(sub => (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  onClick={() => handleToggleSub(item.id, sub.id)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-medium text-left transition cursor-pointer border ${
+                                    sub.checked
+                                      ? 'bg-[#1a3a1a]/60 border-green-800/40 text-green-400'
+                                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500 hover:bg-slate-900/40 hover:text-slate-300'
+                                  }`}
+                                >
+                                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                    sub.checked ? 'bg-green-500 border-green-400' : 'border-slate-700'
+                                  }`}>
+                                    {sub.checked && <CheckCircle2 size={7} color="white" />}
+                                  </span>
+                                  {sub.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="border-t border-slate-800/50 px-4 py-3">
